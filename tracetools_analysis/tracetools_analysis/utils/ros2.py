@@ -24,6 +24,7 @@ from typing import Union
 import numpy as np
 from pandas import concat
 from pandas import DataFrame
+import pandas as pd
 
 from . import DataModelUtil
 from ..data_model.ros2 import Ros2DataModel
@@ -106,6 +107,17 @@ class Ros2DataModelUtil(DataModelUtil):
             pretty = pretty[:(len(pretty) - len('const'))] + ' ' + 'const'
         return pretty
 
+    def get_callback_object(self, callback_symbol):
+        symbols_dic = self.get_callback_symbols()
+        symbols_dic = {v: k for k, v in symbols_dic.items()}
+        return symbols_dic.get(callback_symbol)
+
+    def get_publish_object(self, node_name, topic_name):
+        df = self.get_publish_info()
+        publish_record = df[(df['name'] == node_name) & (df['topic_name'] == topic_name)]
+        assert len(publish_record)==1, 'Failed to get publish record'
+        return publish_record.index.values[0]
+
     def get_callback_symbols(self) -> Mapping[int, str]:
         """
         Get mappings between a callback object and its resolved symbol.
@@ -144,6 +156,20 @@ class Ros2DataModelUtil(DataModelUtil):
         # Time conversion
         return self.convert_time_columns(data, ['duration'], ['timestamp'])
 
+    def get_node_info_from_tid(
+            self,
+            tid) -> DataFrame:
+
+        node_dict = self.data.nodes[self.data.nodes['tid'] == tid].to_dict()
+
+        node_handle =  list(node_dict['timestamp'].keys())[0]
+
+        dic = {'node_handle': node_handle}
+        for key, item in node_dict.items():
+            dic[key] = item[node_handle]
+        return dic
+
+
     def get_node_tid_from_name(
         self,
         node_name: str,
@@ -174,6 +200,7 @@ class Ros2DataModelUtil(DataModelUtil):
         return self.data.nodes[
             self.data.nodes['tid'] == tid
         ]['name'].tolist()
+
 
     def get_callback_owner_info(
         self,
@@ -216,7 +243,69 @@ class Ros2DataModelUtil(DataModelUtil):
 
         if info is None:
             return None
-        return f'{type_name} -- {self.format_info_dict(info)}'
+        return type_name, info
+        # return f'{type_name} -- {self.format_info_dict(info)}'
+
+    def get_timer_info(self):
+        timer_df = self.data.nodes.drop('timestamp', axis=1)
+
+        timer_df = timer_df.astype({'rmw_handle': 'int64'})
+
+        timer_df = pd.merge(
+            timer_df,
+            self.data.timer_objects.drop(['timestamp', 'tid'], axis=1).astype({'node_handle': 'int64'}),
+            left_index=True, right_on='node_handle')
+
+        timer_df = pd.merge(
+            timer_df, self.data.timers.drop(['timestamp', 'tid'], axis=1),
+            left_index=True, right_on='timer_handle')
+
+        timer_df = pd.merge(
+            timer_df,
+            self.data.callback_objects.drop('timestamp', axis=1).astype({'callback_object': 'int64'}),
+            left_index=True, right_index=True)
+
+        symbols = self.get_callback_symbols()
+        df = pd.DataFrame([symbols.keys(), symbols.values()], index=['callback_object', 'symbol']).T
+        timer_df = pd.merge(
+            timer_df, df,
+            on='callback_object')
+        return timer_df
+    def get_subscribe_info(self):
+        data = self.data
+        sub_df = data.nodes.drop('timestamp', axis=1).astype({'rmw_handle': 'int64'})
+
+        subscriptions_df = \
+            data.subscriptions.drop(['timestamp', 'rmw_handle'], axis=1)
+        subscriptions_df['subscription_handle'] = subscriptions_df.index
+        sub_df = pd.merge(sub_df, subscriptions_df, on='node_handle')
+
+        subscription_objects_df = \
+            data.subscription_objects.drop('timestamp', axis=1)
+        subscription_objects_df['subscription'] = subscription_objects_df.index
+        sub_df = pd.merge(
+            sub_df, subscription_objects_df, on='subscription_handle')
+
+        sub_df = pd.merge(
+            sub_df, data.callback_objects.drop('timestamp', axis=1).astype({'callback_object':'int64'}),
+            left_on='subscription', right_index=True)
+
+        symbols = self.get_callback_symbols()
+        df = pd.DataFrame([symbols.keys(), symbols.values()], index=['callback_object', 'symbol']).T
+
+        sub_df = pd.merge(
+            sub_df, df,
+            on='callback_object')
+
+        return sub_df
+
+    def get_publish_info(self):
+        pub_df = self.data.nodes.drop('timestamp', axis=1)
+        pub_df = pd.merge(
+            pub_df,
+            self.data.publishers.drop(['timestamp', 'rmw_handle'], axis=1),
+            left_index=True, right_on='node_handle')
+        return pub_df
 
     def get_timer_handle_info(
         self,

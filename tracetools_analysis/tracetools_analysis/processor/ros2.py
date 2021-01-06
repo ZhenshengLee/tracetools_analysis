@@ -51,6 +51,8 @@ class Ros2Handler(EventHandler):
                 self._handle_rcl_subscription_init,
             'ros2:rclcpp_subscription_init':
                 self._handle_rclcpp_subscription_init,
+            'ros2:rclcpp_timer_added':
+                self._handle_rclcpp_timer_added,
             'ros2:rclcpp_subscription_callback_added':
                 self._handle_rclcpp_subscription_callback_added,
             'ros2:rcl_service_init':
@@ -189,6 +191,15 @@ class Ros2Handler(EventHandler):
         period = get_field(event, 'period')
         tid = metadata.tid
         self.data.add_timer(handle, timestamp, period, tid)
+
+    def _handle_rclcpp_timer_added(
+        self, event: Dict, metadata: EventMetadata,
+    ) -> None:
+        handle = get_field(event, 'timer_handle')
+        timestamp = metadata.timestamp
+        node_handle = get_field(event, 'node_handle')
+        tid = metadata.tid
+        self.data.add_timer_object(handle, timestamp, node_handle, tid)
 
     def _handle_rclcpp_timer_callback_added(
         self, event: Dict, metadata: EventMetadata,

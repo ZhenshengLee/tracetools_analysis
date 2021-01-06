@@ -394,7 +394,7 @@ class Processor():
         self,
         events: List[DictEvent],
         erase_progress: bool = False,
-        no_required_events_check: bool = False,
+        no_required_events_check: bool = False
     ) -> None:
         """
         Process all events.

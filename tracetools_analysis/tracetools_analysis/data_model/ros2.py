@@ -78,6 +78,11 @@ class Ros2DataModel(DataModel):
                                             'period',
                                             'tid'])
         self.timers.set_index(['timer_handle'], inplace=True, drop=True)
+        self.timer_objects = pd.DataFrame(columns=['timer_handle',
+                                                   'timestamp',
+                                                   'node_handle',
+                                                   'tid'])
+        self.timer_objects.set_index(['timer_handle'], inplace=True, drop=True)
 
         self.callback_objects = pd.DataFrame(columns=['reference',
                                                       'timestamp',
@@ -96,6 +101,8 @@ class Ros2DataModel(DataModel):
                                                         'timestamp',
                                                         'duration',
                                                         'intra_process'])
+
+
         # Lifecycle state transitions (may not have a meaningful index)
         self.lifecycle_transitions = pd.DataFrame(columns=['state_machine_handle',
                                                            'start_label',
@@ -138,9 +145,14 @@ class Ros2DataModel(DataModel):
         self.clients.loc[handle] = [timestamp, node_handle, rmw_handle, service_name]
 
     def add_timer(
-        self, handle, timestamp, period, tid
+        self, handle, timestamp,  period, tid
     ) -> None:
-        self.timers.loc[handle] = [timestamp, period, tid]
+        self.timers.loc[handle] = [timestamp,  period, tid]
+
+    def add_timer_object(
+        self, handle, timestamp, node_handle,  tid
+    ) -> None:
+        self.timer_objects.loc[handle] = [timestamp, node_handle,  tid]
 
     def add_callback_object(
         self, reference, timestamp, callback_object
@@ -162,6 +174,14 @@ class Ros2DataModel(DataModel):
             'intra_process': intra_process,
         }
         self.callback_instances = self.callback_instances.append(data, ignore_index=True)
+
+    def add_communication_instance(self, event_object, timestamp, duration):
+        data = {
+            'object': event_object,
+            'timestamp': timestamp,
+            'duration': duration
+        }
+        self.communication_instances = self.communication_instances.append(data, ignore_index=True)
 
     def add_lifecycle_state_machine(
         self, handle, node_handle
