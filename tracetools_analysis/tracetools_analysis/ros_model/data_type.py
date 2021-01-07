@@ -27,10 +27,11 @@ class Histogram:
 
     @property
     def raw(self) -> np.ndarray:
+        tmp_raw = np.append(self.__raw, 0)
         if Histogram.__normalize:
-            sum = np.sum(self.__raw)
+            sum = np.sum(tmp_raw)
             assert(sum != 0)
-            return self.__raw / sum
+            return tmp_raw / sum
         return self.__raw
 
 
