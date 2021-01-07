@@ -2,7 +2,7 @@ from tracetools_analysis.utils.ros2 import Ros2DataModelUtil
 from tracetools_analysis.loading import load_file
 from tracetools_analysis.processor.ros2 import Ros2Handler
 
-from .util import Util
+from .util import Util, DataFrameFilter
 from .node import Node, NodePath, NodeFactory, NodeCollection
 from .comm import CommCollection, Comm
 from .callback import SubscribeCallback, TimerCallback, Callback
@@ -31,7 +31,9 @@ class Application():
         self.nodes = NodeCollection()
         self.data_util = None
         self.__paths = None
+        self.events = None
         self.comms = CommCollection()
+        self._filter = DataFrameFilter()
 
     @property
     def paths(self):
@@ -50,9 +52,10 @@ class Application():
         }
         return info
 
-    def import_trace(self, trace_dir):
+    def import_trace(self, trace_dir, start_transition_ms=0, end_transition_ms=0):
         assert(self.nodes != [])
         events = load_file(trace_dir)
+        self.events = events
         for event in events:
             event['_timestamp'] = Util.ns_to_ms(event['_timestamp'])
 
@@ -61,10 +64,23 @@ class Application():
         self.data_util = Ros2DataModelUtil(handler.data)
         self._insert_runtime_data(self.data_util, self.nodes)
 
-        self._import_callback_durations(handler.data.callback_instances)
-        self._import_sched_durations(self._get_sched_instances(events))
-        self._import_communication_instances(
-            self._get_communication_instances(events))
+        self._filter.min_limit = events[0]['_timestamp'] + start_transition_ms
+        self._filter.max_limit = events[-1]['_timestamp'] - end_transition_ms
+
+        callback_durations = handler.data.callback_instances
+        callback_durations = self._filter.remove(callback_durations, 'timestamp')
+        assert(len(callback_durations) > 0)
+        self._import_callback_durations(callback_durations)
+
+        sched_instances = self._get_sched_instances(events)
+        sched_instances = self._filter.remove(sched_instances, 'timestamp')
+        assert(len(sched_instances) > 0)
+        self._import_sched_durations(sched_instances)
+
+        comm_instances = self._get_communication_instances(events)
+        comm_instances = self._filter.remove(comm_instances, 'timestamp')
+        assert(len(comm_instances) > 0)
+        self._import_communication_instances(comm_instances)
 
     def export(self, path):
         import json
@@ -167,6 +183,7 @@ class Application():
         to_in_object = {
             _.callback_out.callback.object: _.callback_in.callback.object for _ in self.scheds}
         sched_instances = pd.DataFrame(columns=[
+            'timestamp',
             'callback_in_object',
             'callback_out_object',
             'duration'])
@@ -191,6 +208,7 @@ class Application():
                         schedule_instances[callback_in_object]
                     calculated_instances[callback_out_object][callback_in_object] = schedule_instances[callback_in_object]
                     data = {
+                        'timestamp': event['_timestamp'],
                         'callback_in_object': callback_in_object,
                         'callback_out_object': callback_out_object,
                         'duration': duration
@@ -199,7 +217,8 @@ class Application():
                         data, ignore_index=True)
 
         sched_instances = sched_instances.astype(
-            {'callback_in_object': 'int64',
+            {'timestamp': 'float64',
+             'callback_in_object': 'int64',
              'callback_out_object': 'int64',
              'duration': 'float64'})
         return sched_instances
