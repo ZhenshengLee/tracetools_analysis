@@ -98,7 +98,7 @@ class Callback():
 class CallbackPath(Path):
     def __init__(self, callback):
         super().__init__()
-        self.child = [self]
+        self.child = []
         self.callback = callback
 
     def is_target(self):
