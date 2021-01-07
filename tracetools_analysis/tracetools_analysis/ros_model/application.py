@@ -23,7 +23,7 @@ class End2End(Path):
 
     @property
     def name(self):
-        return ' -> '.join([_.name for _ in self._get_node_latencies()])
+        return '--'.join([_.name for _ in self._get_node_latencies()])
 
 
 class Application():

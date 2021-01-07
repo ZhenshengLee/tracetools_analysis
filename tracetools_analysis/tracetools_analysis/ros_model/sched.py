@@ -44,4 +44,4 @@ class Sched(Path):
 
     @property
     def name(self):
-        return '{} -> {}'.format(self.callback_in.name, self.callback_out.name)
+        return '{}--{}'.format(self.callback_in.name, self.callback_out.name)
