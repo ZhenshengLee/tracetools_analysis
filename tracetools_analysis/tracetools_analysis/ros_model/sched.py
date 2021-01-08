@@ -32,6 +32,18 @@ class SchedCollection(collections.abc.Iterable):
         scheds = list(filter(lambda x: f(x), self._scheds))
         return scheds[0]
 
+    def has(self, callback_in, callback_out):
+        for sched in self._scheds:
+            if sched.callback_in == callback_in and sched.callback_out == callback_out:
+                return True
+        return False
+
+    def get(self, callback_in, callback_out):
+        for sched in self._scheds:
+            if sched.callback_in == callback_in and sched.callback_out == callback_out:
+                return sched
+        return None
+
     def __iter__(self):
         return SchedCollectionIterator(self)
 
@@ -41,6 +53,7 @@ class Sched(Path):
         super().__init__()
         self.callback_in = callback_in
         self.callback_out = callback_out
+
 
     @property
     def name(self):

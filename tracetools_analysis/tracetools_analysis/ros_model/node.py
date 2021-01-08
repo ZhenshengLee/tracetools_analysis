@@ -92,16 +92,18 @@ class NodeCollection(collections.abc.Iterable):
     def get_root_paths(self):
         return list(filter(lambda x: x.start_node, self.paths))
 
-    def get_subsequent_paths(self, publisher):
-        assert(isinstance(publisher, Publish))
-        node_paths_ = []
-        for node_path in self.paths:
-            head_callback = node_path.child[0].callback
-            if not isinstance(head_callback, SubscribeCallback):
-                continue
-            if head_callback.topic_name == publisher.topic_name:
-                node_paths_.append(node_path)
-        return node_paths_
+    def get_subsequent_paths(self, node_path):
+        assert(isinstance(node_path, NodePath))
+
+        subsequent_paths = []
+        tail_callback = node_path.child[-1]
+        for pub in tail_callback.publishes:
+            for node_path_ in self.paths:
+                head_callback = node_path_.child[0].callback
+                if isinstance(head_callback, SubscribeCallback) and \
+                   head_callback.topic_name == pub.topic_name:
+                    subsequent_paths.append(node_path_)
+        return subsequent_paths
 
     def append(self, node):
         self._nodes.append(node)
@@ -125,6 +127,14 @@ class NodeFactory():
         for callback_info in node_info['callbacks']:
             node.callbacks.append(CallbackFactory.create(callback_info))
 
+        for callback_info in node_info['callbacks']:
+            for subsequent_callback_symbol in callback_info['subsequent_callback_symbols']:
+                callback = node.callbacks.get_from_symbol(callback_info['symbol']).latency
+                subsequent_callback = node.callbacks.get_from_symbol(subsequent_callback_symbol).latency
+                if not node.scheds.has(callback, subsequent_callback):
+                    node.scheds.append(Sched(callback, subsequent_callback))
+
+
         # find subsequent callback and insert sched object
         for callback_info in node_info['callbacks']:
             symbol = callback_info['symbol']
@@ -133,7 +143,7 @@ class NodeFactory():
                 subsequent_callback = node.callbacks.get_from_symbol(
                     subsequent_callback_symbol).latency
                 callback.subsequent.append(subsequent_callback)
-                node.scheds.append(Sched(callback, subsequent_callback))
+                node.scheds.append(node.scheds.get(callback, subsequent_callback))
 
         node.update_paths()
         return node
@@ -151,6 +161,13 @@ class NodePath(Path):
     @property
     def hist(self):
         return Histogram.sum([_.hist for _ in self.child])
+
+    def same_publish(self, node_path):
+        return self.child[-1] == node_path.child[-1]
+
+    def same_subscription(self, node_path):
+        return self.child[0] == node_path.child[0]
+
 
     @property
     def start_node(self):
