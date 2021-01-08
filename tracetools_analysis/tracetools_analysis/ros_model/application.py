@@ -45,6 +45,10 @@ class Application():
     def scheds(self):
         return Util.flatten([_.scheds for _ in self.nodes])
 
+    @property
+    def callbacks(self):
+        return Util.flatten([list(node.callbacks) for node in self.nodes])
+
     def update_paths(self):
         self.__paths = self._search_paths(self.nodes)
 
