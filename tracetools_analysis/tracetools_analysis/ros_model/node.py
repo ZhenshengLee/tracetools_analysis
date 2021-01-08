@@ -143,7 +143,6 @@ class NodeFactory():
                 subsequent_callback = node.callbacks.get_from_symbol(
                     subsequent_callback_symbol).latency
                 callback.subsequent.append(subsequent_callback)
-                node.scheds.append(node.scheds.get(callback, subsequent_callback))
 
         node.update_paths()
         return node
