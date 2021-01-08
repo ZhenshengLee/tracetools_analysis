@@ -13,7 +13,7 @@ class Comm(Path):
         self.node_sub = node_sub
 
     def get_objects(self):
-        sub = self.node_sub.child[0].callback
+        sub = self.node_sub.child[0]
         sub_topic_name = sub.topic_name
 
         for pub in self.node_pub.publishes:

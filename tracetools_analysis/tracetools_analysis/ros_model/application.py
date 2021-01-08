@@ -228,12 +228,12 @@ class Application():
 
     def _get_sched_instances(self, events):
         callback_out_objects = [
-            _.callback_out.callback.object for _ in self.scheds]
+            _.callback_out.object for _ in self.scheds]
         callback_in_objects = [
-            _.callback_in.callback.object for _ in self.scheds]
+            _.callback_in.object for _ in self.scheds]
 
         to_in_object = {
-            _.callback_out.callback.object: _.callback_in.callback.object for _ in self.scheds}
+            _.callback_out.object: _.callback_in.object for _ in self.scheds}
         sched_instances = pd.DataFrame(columns=[
             'timestamp',
             'callback_in_object',
@@ -278,9 +278,9 @@ class Application():
     def _import_sched_durations(self, sched_instances):
         for sched in self.scheds:
             duration_records = sched_instances[
-                (sched_instances['callback_in_object'] == sched.callback_in.callback.object) &
+                (sched_instances['callback_in_object'] == sched.callback_in.object) &
                 (sched_instances['callback_out_object']
-                 == sched.callback_out.callback.object)
+                 == sched.callback_out.object)
             ]
             duration_raw = duration_records['duration'].values
             sched.timeseries = Timeseries(duration_raw)
@@ -327,7 +327,7 @@ class ApplicationFactory():
         node_latencies = Util.flatten([node.paths for node in app.nodes])
         for node in node_latencies:
             for node_ in node_latencies:
-                if node_.has_subscribe_callback() and node_.subscribe_topic in node.publish_topics:
+                if node_.subscribe_topic in node.publish_topics:
                     node.subsequent.append(node_)
 
         app.update_paths()

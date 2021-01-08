@@ -64,6 +64,7 @@ class Path(SearchNode):
     @hist.setter
     def hist(self, hist):
         self._hist = hist
+
     @property
     def max_ms(self):
         tmp_raw = np.trim_zeros(self.hist.raw, 'b')

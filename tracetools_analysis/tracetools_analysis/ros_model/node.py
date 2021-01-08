@@ -99,9 +99,9 @@ class NodeCollection(collections.abc.Iterable):
         tail_callback = node_path.child[-1]
         for pub in tail_callback.publishes:
             for node_path_ in self.paths:
-                head_callback = node_path_.child[0].callback
-                if isinstance(head_callback, SubscribeCallback) and \
-                   head_callback.topic_name == pub.topic_name:
+                head_callback = node_path_.child[0]
+                # print(head_callback, head_callback.is_type(SubscribeCallback))
+                if head_callback.topic_name == pub.topic_name:
                     subsequent_paths.append(node_path_)
         return subsequent_paths
 
@@ -194,15 +194,11 @@ class NodePath(Path):
 
     @property
     def subscribe_topic(self):
-        head_callback = self.__path.child[0].callback
-        assert(isinstance(head_callback, SubscribeCallback))
+        head_callback = self.__path.child[0]
         return head_callback.topic_name
 
     def is_target(self):
         return self.end_node
-
-    def has_subscribe_callback(self):
-        return isinstance(self.__path.child[0], SubscribeCallback)
 
 
 class NodeCollectionIterator(collections.abc.Iterator):

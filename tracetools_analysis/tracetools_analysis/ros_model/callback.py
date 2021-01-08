@@ -109,17 +109,28 @@ class CallbackPath(Path):
     def __init__(self, callback):
         super().__init__()
         self.child = []
-        self.callback = callback
+        self._callback = callback
 
     def is_target(self):
-        return self.callback.has_publish()
+        return self._callback.has_publish()
+
+    @property
+    def object(self):
+        return self._callback.object
 
     @property
     def publishes(self):
-        return self.callback.publishes
+        return self._callback.publishes
+
     @property
     def name(self):
-        return self.callback.name
+        return self._callback.name
+
+    @property
+    def topic_name(self):
+        if not isinstance(self._callback, SubscribeCallback):
+            return ''
+        return self._callback.topic_name
 
 
 class TimerCallback(Callback):
