@@ -47,6 +47,9 @@ class SchedCollection(collections.abc.Iterable):
     def __iter__(self):
         return SchedCollectionIterator(self)
 
+    def __getitem__(self, key):
+        return self._scheds[key]
+
 
 class Sched(Path):
     def __init__(self, callback_in, callback_out):
