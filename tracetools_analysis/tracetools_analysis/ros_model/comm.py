@@ -3,6 +3,7 @@ import collections.abc
 from .search_tree import Path
 from .node import NodePath
 
+import numpy as np
 
 class Comm(Path):
     def __init__(self, node_pub, node_sub):
@@ -18,6 +19,17 @@ class Comm(Path):
         for pub in self.node_pub.publishes:
             if pub.topic_name == sub_topic_name:
                 return {'publish': pub.object, 'subscribe': sub.object}
+
+    def get_stats(self):
+        data = {
+            'min': np.min(self.timeseries.raw_nan_removed),
+            'max': np.max(self.timeseries.raw_nan_removed),
+            'median': np.median(self.timeseries.raw_nan_removed),
+            'avg': np.mean(self.timeseries.raw_nan_removed),
+            'send': len(self.timeseries.raw),
+            'lost': len(self.timeseries.raw)-len(self.timeseries.raw_nan_removed)
+        }
+        return data
 
     @property
     def name(self):

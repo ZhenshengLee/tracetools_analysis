@@ -11,6 +11,7 @@ from .search_tree import SearchTree, Path
 from .data_type import Timeseries, Histogram
 
 import pandas as pd
+import numpy as np
 
 
 class End2End(Path):
@@ -33,6 +34,7 @@ class Application():
         self.__paths = None
         self.events = None
         self.comms = CommCollection()
+        self.comm_instances = None
         self._filter = DataFrameFilter()
 
     @property
@@ -69,18 +71,19 @@ class Application():
 
         callback_durations = handler.data.callback_instances
         callback_durations = self._filter.remove(callback_durations, 'timestamp')
-        assert(len(callback_durations) > 0)
+        assert len(callback_durations) > 0, 'all instance are removed'
         self._import_callback_durations(callback_durations)
 
         sched_instances = self._get_sched_instances(events)
         sched_instances = self._filter.remove(sched_instances, 'timestamp')
-        assert(len(sched_instances) > 0)
+        assert len(sched_instances) > 0, 'all instance are removed'
         self._import_sched_durations(sched_instances)
 
-        comm_instances = self._get_communication_instances(events)
+        comm_instances = self._get_comm_instances(events, self.comms)
         comm_instances = self._filter.remove(comm_instances, 'timestamp')
-        assert(len(comm_instances) > 0)
-        self._import_communication_instances(comm_instances)
+        self.comm_instances = comm_instances
+        assert len(comm_instances) > 0, 'all instance are removed'
+        self._import_comm_instances(comm_instances)
 
     def export(self, path):
         import json
@@ -91,23 +94,24 @@ class Application():
         node_paths = self.nodes.paths
         # find subsequent nodes
         for node_path in node_paths:
-            for pub in node_path.child[-1].publishes:
-                subsequent = self.nodes.get_subsequent_paths(pub)
-                node_path.subsequent = subsequent
+            node_path.subsequent = self.nodes.get_subsequent_paths(node_path)
 
         # search all path
         paths_node_only = []
         for node_path in self.nodes.get_root_paths():
             paths_node_only += SearchTree.search(node_path)
 
+        for path_node_only in paths_node_only:
+            for node_pub, node_sub in zip(path_node_only[:-1], path_node_only[1:]):
+                if not self.comms.has(node_pub, node_sub):
+                    self.comms.append(Comm(node_pub, node_sub))
+
         # create path objects and insert communication latency
         paths = []
         for path_node_only in paths_node_only:
             child = [path_node_only[0]]
             for node_pub, node_sub in zip(path_node_only[:-1], path_node_only[1:]):
-                comm = Comm(node_pub, node_sub)
-                self.comms.append(comm)
-                child.append(comm)
+                child.append(self.comms.get(node_pub, node_sub))
                 child.append(node_sub)
             paths.append(End2End(child))
         return paths
@@ -120,7 +124,7 @@ class Application():
                 callback_durations = callback_duration_records['duration'].values
                 callback.latency.timeseries = Timeseries(callback_durations)
 
-    def _import_communication_instances(self, instances):
+    def _import_comm_instances(self, instances):
         for comm in self.comms:
             objects = comm.get_objects()
             duration_records = instances[
@@ -130,49 +134,93 @@ class Application():
             comm.timeseries = Timeseries(duration_records['duration'].values)
             comm.hist = comm.timeseries.to_hist()
 
-    def _get_communication_instances(self, events):
-        class PublishRecord():
-            def __init__(self, stamp, time):
-                self.stamp = stamp
-                self.time = time
+    def get_publish_instances(self, events):
+        publish_instances = pd.DataFrame(columns=[
+            'timestamp',
+            'stamp',
+            'publisher_handle'])
 
-        def get_publish_point(object, stamp) -> PublishRecord:
-            publish_point = pub_time[object]
-            if publish_point.stamp == stamp:
-                return publish_point
-            return None
-
-        to_pub_node = {}
-        for comm in self.comms:
-            objects = comm.get_objects()
-            to_pub_node[objects['subscribe']] = objects['publish']
-        communication_instances = pd.DataFrame(columns=['publish_object',
-                                                        'subscribe_object',
-                                                        'timestamp',
-                                                        'duration'])
-        pub_time = {}
         for event in events:
             if event['_name'] == 'ros2:rclcpp_publish':
-                pub_time[event['publisher_handle']] = PublishRecord(
-                    event['stamp'],
-                    event['_timestamp']
-                )
-            elif event['_name'] == 'ros2:rclcpp_subscribe':
-                subscribe_object = event['callback']
-                publish_object = to_pub_node[event['callback']]
-                publish_point = get_publish_point(
-                    publish_object, event['stamp'])
-                if publish_point:
-                    duration = event['_timestamp'] - publish_point.time
-                    data = {
-                        'publish_object': publish_object,
-                        'subscribe_object': subscribe_object,
-                        'timestamp': event['_timestamp'],
-                        'duration': duration
-                    }
-                communication_instances = communication_instances.append(
-                    data, ignore_index=True)
-        return communication_instances.astype({'publish_object': 'int64', 'subscribe_object': 'int64'})
+                data = {
+                    'timestamp': event['_timestamp'],
+                    'publisher_handle': event['publisher_handle'],
+                    'stamp': event['stamp']
+                }
+                publish_instances = publish_instances.append(data, ignore_index=True)
+
+        publish_instances = pd.merge(publish_instances,  self.data_util.get_publish_info() , on='publisher_handle')
+        publish_instances.reset_index(inplace=True, drop=True)
+
+        return publish_instances
+
+    def get_subscribe_instances(self, events):
+        subscribe_instances = pd.DataFrame(columns=[
+            'timestamp',
+            'stamp',
+            'callback_object'])
+
+        for event in events:
+            if event['_name'] == 'ros2:rclcpp_subscribe':
+                data = {
+                    'timestamp': event['_timestamp'],
+                    'stamp': event['stamp'],
+                    'callback_object': event['callback']
+                }
+                subscribe_instances = subscribe_instances.append(data, ignore_index=True)
+
+        subscribe_instances = pd.merge(subscribe_instances,  self.data_util.get_subscribe_info(), on='callback_object')
+        subscribe_instances.reset_index(inplace=True, drop=True)
+
+        return subscribe_instances
+
+    def _get_comm_instances(self, events, comms):
+        publish_instances = self.get_publish_instances(events)
+        subscribe_instances = self.get_subscribe_instances(events)
+
+        comm_instances = [self._get_specific_comm_instances(comm,
+                                                  publish_instances,
+                                                  subscribe_instances) \
+                          for comm in comms]
+        comm_instances = pd.concat(comm_instances)
+        return comm_instances
+
+    def _get_specific_comm_instances(self, comm, publish_df, subscribe_df):
+        obj = comm.get_objects()
+
+        publish_object = obj['publish']
+        subscribe_object = obj['subscribe']
+
+        comm_instances = pd.DataFrame(columns=['publish_object',
+                                               'subscribe_object',
+                                               'timestamp',
+                                               'duration'])
+
+        # filter specific records
+        publish_df_ = publish_df[publish_df['publisher_handle'] == publish_object]
+        publish_df_.reset_index(inplace=True, drop=True)
+        subscribe_df_ = subscribe_df[subscribe_df['callback_object'] == subscribe_object] 
+        subscribe_df_.reset_index(inplace=True, drop=True)
+
+        for i, publish_record in publish_df_.iterrows():
+            subscribe_record = subscribe_df_[subscribe_df_['stamp'] == publish_record['stamp']]
+            duration = None
+            if len(subscribe_record) == 1:
+                duration = subscribe_record['timestamp'].values[0] - publish_record['timestamp']
+            data = {
+                'timestamp': publish_record['timestamp'],
+                'publish_object': publish_object,
+                'subscribe_object': subscribe_object,
+                'duration': duration
+            }
+            comm_instances = comm_instances.append(data, ignore_index=True)
+
+        # remove last records if values are NaN
+        valid_messages_df = comm_instances[~(np.isnan(comm_instances['duration']))]
+        last_valid_idx = valid_messages_df.index[-1]
+        comm_instances = comm_instances.iloc[:last_valid_idx+1]
+
+        return comm_instances
 
     def _get_sched_instances(self, events):
         callback_out_objects = [

@@ -3,6 +3,7 @@ import collections.abc
 from .search_tree import Path
 from .publish import Publish
 
+import numpy as np
 
 class CallbackCollectionIterator(collections.abc.Iterator):
     def __init__(self, callback_collection):
@@ -93,6 +94,15 @@ class Callback():
 
     def get_info(self):
         pass
+
+    def get_stats(self):
+        data = {
+            'min': np.min(self.timeseries.raw_nan_removed),
+            'max': np.max(self.timeseries.raw_nan_removed),
+            'median': np.median(self.timeseries.raw_nan_removed),
+            'avg': np.mean(self.timeseries.raw_nan_removed)
+        }
+        return data
 
 
 class CallbackPath(Path):

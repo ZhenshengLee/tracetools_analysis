@@ -7,6 +7,7 @@ class Histogram:
     __normalize = True
 
     def __init__(self, raw: np.array):
+        raw = [_ for _ in raw if not np.isnan(_)]
         self.__raw = np.trim_zeros(raw, 'b')
 
     @classmethod
@@ -43,9 +44,14 @@ class Timeseries:
     def raw(self) -> np.ndarray:
         return self.__raw
 
+    @property
+    def raw_nan_removed(self) -> np.ndarray:
+        return np.array([_ for _ in self.__raw if not np.isnan(_)])
+
     def to_hist(self):
-        bins = int(np.ceil(np.max(self.__raw))) + 1
+        raw = self.raw_nan_removed
+        bins = int(np.ceil(np.max(raw))) + 1
         assert bins < 10000, 'too large bin size.'
-        range_max = int(np.ceil(np.max(self.__raw))) + 1
-        hist_raw, _ = np.histogram(self.__raw, bins=bins, range=(0, range_max))
+        range_max = int(np.ceil(np.max(raw))) + 1
+        hist_raw, _ = np.histogram(raw, bins=bins, range=(0, range_max))
         return Histogram(hist_raw)
