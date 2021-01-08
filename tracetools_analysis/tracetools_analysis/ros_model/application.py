@@ -78,7 +78,7 @@ class Application():
         assert len(callback_durations) > 0, 'all instance are removed'
         self._import_callback_durations(callback_durations)
 
-        sched_instances = self._get_sched_instances(events)
+        sched_instances = self._get_sched_instances(events, self.scheds)
         sched_instances = self._filter.remove(sched_instances, 'timestamp')
         assert len(sched_instances) > 0, 'all instance are removed'
         self._import_sched_durations(sched_instances)
@@ -226,54 +226,80 @@ class Application():
 
         return comm_instances
 
-    def _get_sched_instances(self, events):
-        callback_out_objects = [
-            _.callback_out.object for _ in self.scheds]
-        callback_in_objects = [
-            _.callback_in.object for _ in self.scheds]
-
-        to_in_object = {
-            _.callback_out.object: _.callback_in.object for _ in self.scheds}
+    def _get_specific_sched_instances(self, sched, callback_end_instances, callback_start_instances):
         sched_instances = pd.DataFrame(columns=[
             'timestamp',
             'callback_in_object',
             'callback_out_object',
             'duration'])
 
-        schedule_instances = {}
-        calculated_instances = {}
-        for callback_out_object in callback_out_objects:
-            calculated_instances[callback_out_object] = {}
+        callback_end_instances_ = callback_end_instances[callback_end_instances['callback_in_object'] == sched.callback_in.object].reset_index(drop=True)
+        callback_start_instances_ = callback_start_instances[callback_start_instances['callback_out_object'] == sched.callback_out.object].reset_index(drop=True)
+
+        callback_start_idx = 0
+        for callback_end_idx in range(len(callback_end_instances_)):
+            is_last_record = callback_end_idx == len(callback_end_instances_) - 1
+            target_end_record = callback_end_instances_.iloc[callback_end_idx]
+            next_end_record = None
+            if not is_last_record:
+                next_end_record  = callback_end_instances_.iloc[callback_end_idx+1]
+            next_start_record = callback_start_instances_.iloc[callback_start_idx]
+
+            duration = None
+            if is_last_record or next_start_record['timestamp'] < next_end_record['timestamp']:
+                callback_start_idx += 1
+                duration = next_start_record['timestamp'] - target_end_record['timestamp']
+            data = {
+                'timestamp': target_end_record['timestamp'],
+                'callback_in_object': sched.callback_in.object,
+                'callback_out_object': sched.callback_out.object,
+                'duration': duration
+            }
+            sched_instances = sched_instances.append(data, ignore_index=True)
+        return sched_instances
+
+    def _get_callback_end_instances(self, events):
+        callback_end_instances = pd.DataFrame(columns=[
+            'timestamp',
+            'callback_in_object'])
 
         for event in events:
-            if 'ros2:callback_end' in event['_name']:
-                if event['callback'] in callback_in_objects:
-                    schedule_instances[event['callback']] = event['_timestamp']
+            if event['_name'] == 'ros2:callback_end':
+                data = {
+                    'timestamp': event['_timestamp'],
+                    'callback_in_object': event['callback']
+                }
+                callback_end_instances = callback_end_instances.append(data, ignore_index=True)
 
-            elif 'ros2:callback_start' in event['_name']:
-                if event['callback'] in callback_out_objects:
-                    callback_out_object = event['callback']
-                    callback_in_object = to_in_object[callback_out_object]
-                    if calculated_instances[callback_out_object].get(callback_in_object) == schedule_instances.get(callback_in_object):
-                        continue
-                    duration = event['_timestamp'] - \
-                        schedule_instances[callback_in_object]
-                    calculated_instances[callback_out_object][callback_in_object] = schedule_instances[callback_in_object]
-                    data = {
-                        'timestamp': event['_timestamp'],
-                        'callback_in_object': callback_in_object,
-                        'callback_out_object': callback_out_object,
-                        'duration': duration
-                    }
-                    sched_instances = sched_instances.append(
-                        data, ignore_index=True)
+        return callback_end_instances
 
-        sched_instances = sched_instances.astype(
-            {'timestamp': 'float64',
-             'callback_in_object': 'int64',
-             'callback_out_object': 'int64',
-             'duration': 'float64'})
+    def _get_callback_start_instances(self, events):
+        callback_start_instances = pd.DataFrame(columns=[
+            'timestamp',
+            'callback_out_object'])
+
+        for event in events:
+            if event['_name'] == 'ros2:callback_start':
+                data = {
+                    'timestamp': event['_timestamp'],
+                    'callback_out_object': event['callback']
+                }
+                callback_start_instances = callback_start_instances.append(data, ignore_index=True)
+
+        return callback_start_instances
+
+    def _get_sched_instances(self, events, scheds):
+        callback_end_instances = self._get_callback_end_instances(events)
+        callback_start_instances = self._get_callback_start_instances(events)
+
+        sched_instances = [
+            self._get_specific_sched_instances(sched, callback_end_instances, callback_start_instances)
+            for sched in scheds ]
+
+        sched_instances = pd.concat(sched_instances)
+
         return sched_instances
+
 
     def _import_sched_durations(self, sched_instances):
         for sched in self.scheds:
