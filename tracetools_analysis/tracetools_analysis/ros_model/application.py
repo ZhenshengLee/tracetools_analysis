@@ -243,6 +243,8 @@ class Application():
             next_end_record = None
             if not is_last_record:
                 next_end_record  = callback_end_instances_.iloc[callback_end_idx+1]
+            if callback_start_idx not in callback_start_instances_.index:
+                break
             next_start_record = callback_start_instances_.iloc[callback_start_idx]
 
             duration = None
