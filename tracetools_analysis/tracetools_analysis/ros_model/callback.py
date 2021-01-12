@@ -132,6 +132,17 @@ class CallbackPath(Path):
             return ''
         return self._callback.topic_name
 
+    def get_stats(self):
+        data = {
+            'min': np.min(self.timeseries.raw_nan_removed),
+            'max': np.max(self.timeseries.raw_nan_removed),
+            'median': np.median(self.timeseries.raw_nan_removed),
+            'avg': np.mean(self.timeseries.raw_nan_removed),
+            'send': len(self.timeseries.raw),
+            'lost': len(self.timeseries.raw)-len(self.timeseries.raw_nan_removed)
+        }
+        return data
+
 
 class TimerCallback(Callback):
     def __init__(self, period=None, symbol=None):
