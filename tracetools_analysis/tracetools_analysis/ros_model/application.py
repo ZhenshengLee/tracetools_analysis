@@ -23,8 +23,12 @@ class End2End(Path):
         return Histogram.sum([_.hist for _ in self.child])
 
     @property
-    def name(self):
+    def child_names(self):
         return '--'.join([_.name for _ in self._get_node_latencies()])
+
+    @property
+    def name(self):
+        return 'end-to-end'
 
 
 class Application():
@@ -244,7 +248,8 @@ class Application():
             'duration'])
 
         callback_end_instances_ = callback_end_instances[callback_end_instances['callback_in_object'] == sched.callback_in.object].reset_index(drop=True)
-        callback_start_instances_ = callback_start_instances[callback_start_instances['callback_out_object'] == sched.callback_out.object].reset_index(drop=True)
+        callback_start_instances_ = callback_start_instances[callback_start_instances['callback_out_object'] == sched.callback_out.object]
+        callback_start_instances_.reset_index(drop=True, inplace=True)
 
         callback_start_idx = 0
         for callback_end_idx in range(len(callback_end_instances_)):

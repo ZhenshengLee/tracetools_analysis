@@ -181,8 +181,12 @@ class NodePath(Path):
         return self.__node.end_node
 
     @property
-    def name(self):
+    def child_names(self):
         return '--'.join([_.name for _ in self._get_callback_latencies()])
+
+    @property
+    def name(self):
+        return self.__node.name
 
     @property
     def path(self):
