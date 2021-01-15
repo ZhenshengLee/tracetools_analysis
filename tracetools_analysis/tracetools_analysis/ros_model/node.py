@@ -3,7 +3,7 @@ import collections.abc
 from .search_tree import SearchTree, Path
 from .data_type import Histogram
 from .util import Util
-from .callback import SubscribeCallback, CallbackFactory, CallbackCollection
+from .callback import SubscribeCallback, CallbackFactory, CallbackCollection, CallbackPath
 from .sched import Sched, SchedCollection
 from .publish import Publish
 
@@ -182,7 +182,7 @@ class NodePath(Path):
 
     @property
     def name(self):
-        return self.__node.name
+        return '--'.join([_.name for _ in self._get_callback_latencies()])
 
     @property
     def path(self):
@@ -196,6 +196,9 @@ class NodePath(Path):
     def subscribe_topic(self):
         head_callback = self.__path.child[0]
         return head_callback.topic_name
+
+    def _get_callback_latencies(self):
+        return list(filter(lambda x: isinstance(x, CallbackPath), self.child))
 
     def is_target(self):
         return self.end_node
