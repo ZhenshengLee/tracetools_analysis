@@ -59,13 +59,12 @@ class Node():
         if self.end_node is True:
             paths_ = []
             for callback in self.callbacks.get_subscription():
-                path = Path(child=[callback.latency])
-                paths_.append(
-                    NodePath(path, self, self.start_node, self.end_node))
+                path = Path(child=[callback.path])
+                paths_.append(NodePath(path, self, self.start_node, self.end_node))
             return paths_
 
         paths_callback_only = Util.flatten(
-            ([SearchTree.search(_.latency) for _ in self.callbacks]))
+            ([SearchTree.search(_.path) for _ in self.callbacks]))
 
         # create path object and insert sched latency
         paths_ = []
@@ -100,7 +99,6 @@ class NodeCollection(collections.abc.Iterable):
         for pub in tail_callback.publishes:
             for node_path_ in self.paths:
                 head_callback = node_path_.child[0]
-                # print(head_callback, head_callback.is_type(SubscribeCallback))
                 if head_callback.topic_name == pub.topic_name:
                     subsequent_paths.append(node_path_)
         return subsequent_paths
@@ -128,20 +126,19 @@ class NodeFactory():
             node.callbacks.append(CallbackFactory.create(callback_info))
 
         for callback_info in node_info['callbacks']:
+            callback = node.callbacks.get_from_symbol(callback_info['symbol']).path
+
             for subsequent_callback_symbol in callback_info['subsequent_callback_symbols']:
-                callback = node.callbacks.get_from_symbol(callback_info['symbol']).latency
-                subsequent_callback = node.callbacks.get_from_symbol(subsequent_callback_symbol).latency
+                subsequent_callback = node.callbacks.get_from_symbol(subsequent_callback_symbol).path
                 if not node.scheds.has(callback, subsequent_callback):
                     node.scheds.append(Sched(callback, subsequent_callback))
 
 
         # find subsequent callback and insert sched object
         for callback_info in node_info['callbacks']:
-            symbol = callback_info['symbol']
+            callback = node.callbacks.get_from_symbol(callback_info['symbol']).path
             for subsequent_callback_symbol in callback_info['subsequent_callback_symbols']:
-                callback = node.callbacks.get_from_symbol(symbol).latency
-                subsequent_callback = node.callbacks.get_from_symbol(
-                    subsequent_callback_symbol).latency
+                subsequent_callback = node.callbacks.get_from_symbol(subsequent_callback_symbol).path
                 callback.subsequent.append(subsequent_callback)
 
         node.update_paths()

@@ -130,7 +130,7 @@ class Application():
                 callback_duration_records = callback_instances[
                     callback_instances['callback_object'] == callback.object]
                 callback_durations = callback_duration_records['duration'].values
-                callback.latency.timeseries = Timeseries(callback_durations)
+                callback.timeseries = Timeseries(callback_durations)
 
     def _import_comm_instances(self, instances):
         for comm in self.comms:

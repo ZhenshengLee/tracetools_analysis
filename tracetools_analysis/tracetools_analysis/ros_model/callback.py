@@ -29,9 +29,10 @@ class CallbackCollection(collections.abc.Iterable):
 
     def get_from_symbol(self, symbol):
         for callback in self._callbacks:
-            if callback.symbol == symbol:
+           if callback.symbol == symbol:
                 return callback
-        return None
+
+        raise KeyError('failed to find Callback object. symbol:{}'.format(symbol))
 
     def __getitem__(self, key):
         return self._callbacks[key]
@@ -73,7 +74,7 @@ class Callback():
         self.publishes = []
         self.symbol = symbol
         self.object = object
-        self.latency = CallbackPath(self)
+        self.path = CallbackPath(self)
 
     def has_publish(self, topic_name=None):
         if topic_name is None:
@@ -82,11 +83,19 @@ class Callback():
 
     @property
     def hist(self):
-        return self.latency.hist
+        return self.path.hist
+    @hist.setter
+    def timeseries(self, timeseries):
+        self.path.hist = timeseries
 
     @property
     def timeseries(self):
-        return self.latency.timeseries
+        return self.path.timeseries
+
+    @timeseries.setter
+    def timeseries(self, timeseries):
+        self.path.timeseries = timeseries
+
 
     @property
     def name(self):
