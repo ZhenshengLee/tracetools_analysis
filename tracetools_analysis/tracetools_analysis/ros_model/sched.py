@@ -1,6 +1,7 @@
 import collections.abc
 import numpy as np
 
+from .callback import Callback, CallbackPath
 from .search_tree import Path
 
 class SchedCollectionIterator(collections.abc.Iterator):
@@ -39,10 +40,14 @@ class SchedCollection(collections.abc.Iterable):
         return False
 
     def get(self, callback_in, callback_out):
+        assert isinstance(callback_in, Callback) or isinstance(callback_in, CallbackPath)
+        assert isinstance(callback_out, Callback) or isinstance(callback_in, CallbackPath)
+
         for sched in self._scheds:
             if sched.callback_in == callback_in and sched.callback_out == callback_out:
                 return sched
-        return None
+
+        raise KeyError('failed to find sched object. callback_in:{} callback_out:{}'.format(callback_in.name, callback_out.name))
 
     def __iter__(self):
         return SchedCollectionIterator(self)
@@ -53,6 +58,9 @@ class SchedCollection(collections.abc.Iterable):
 
 class Sched(Path):
     def __init__(self, callback_in, callback_out):
+        assert isinstance(callback_in, CallbackPath)
+        assert isinstance(callback_out, CallbackPath)
+
         super().__init__()
         self.callback_in = callback_in
         self.callback_out = callback_out
