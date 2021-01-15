@@ -127,6 +127,10 @@ class CallbackPath(Path):
         return self._callback.name
 
     @property
+    def symbol(self):
+        return self._callback.symbol
+
+    @property
     def topic_name(self):
         if not isinstance(self._callback, SubscribeCallback):
             return ''
