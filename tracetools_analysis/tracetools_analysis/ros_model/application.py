@@ -155,6 +155,7 @@ class Application():
 
         publish_instances = pd.merge(publish_instances,  self.data_util.get_publish_info() , on='publisher_handle')
         publish_instances.reset_index(inplace=True, drop=True)
+        assert len(publish_instances)>0,'ros2:rclcpp_publish is not recorded. Use forked-foxy.'
 
         return publish_instances
 
@@ -190,6 +191,11 @@ class Application():
         return comm_instances
 
     def _get_specific_comm_instances(self, comm, publish_df, subscribe_df):
+        assert isinstance(publish_df, pd.DataFrame)
+        assert isinstance(subscribe_df, pd.DataFrame)
+        assert len(publish_df)>0
+        assert len(subscribe_df)>0
+
         obj = comm.get_objects()
 
         publish_object = obj['publish']
@@ -203,8 +209,12 @@ class Application():
         # filter specific records
         publish_df_ = publish_df[publish_df['publisher_handle'] == publish_object]
         publish_df_.reset_index(inplace=True, drop=True)
+
         subscribe_df_ = subscribe_df[subscribe_df['callback_object'] == subscribe_object] 
         subscribe_df_.reset_index(inplace=True, drop=True)
+
+        assert len(publish_df_)>0
+        assert len(subscribe_df_)>0
 
         for i, publish_record in publish_df_.iterrows():
             subscribe_record = subscribe_df_[subscribe_df_['stamp'] == publish_record['stamp']]
