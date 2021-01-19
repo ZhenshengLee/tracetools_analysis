@@ -168,7 +168,7 @@ class TimerCallback(Callback):
             'type': 'timer_callback',
             'period': self.period,
             'symbol': self.symbol,
-            'subsequent_callback_symbols': [cb.symbol for cb in self.latency.subsequent],
+            'subsequent_callback_symbols': [cb.symbol for cb in self.path.subsequent],
             'publish_topic_names': [pub.topic_name for pub in self.publishes],
         }
         return info
@@ -186,6 +186,6 @@ class SubscribeCallback(Callback):
             'topic_name': self.topic_name,
             'symbol': self.symbol,
             'publish_topic_names': [pub.topic_name for pub in self.publishes],
-            'subsequent_callback_symbols': [cb.symbol for cb in self.latency.subsequent]
+            'subsequent_callback_symbols': [cb.symbol for cb in self.path.subsequent]
         }
         return info

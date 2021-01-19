@@ -15,7 +15,7 @@ import numpy as np
 
 
 class End2End(Path):
-    def _get_node_latencies(self):
+    def _get_node_paths(self):
         return list(filter(lambda x: isinstance(x, NodePath), self.child))
 
     @property
@@ -24,7 +24,7 @@ class End2End(Path):
 
     @property
     def child_names(self):
-        return '--'.join([_.name for _ in self._get_node_latencies()])
+        return '--'.join([_.name for _ in self._get_node_paths()])
 
     @property
     def name(self):
@@ -369,9 +369,9 @@ class ApplicationFactory():
             app.nodes.append(NodeFactory.create(node_info))
 
         # find subsequent nodes
-        node_latencies = Util.flatten([node.paths for node in app.nodes])
-        for node in node_latencies:
-            for node_ in node_latencies:
+        node_paths = Util.flatten([node.paths for node in app.nodes])
+        for node in node_paths:
+            for node_ in node_paths:
                 if node_.subscribe_topic in node.publish_topics:
                     node.subsequent.append(node_)
 
