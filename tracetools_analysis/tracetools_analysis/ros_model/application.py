@@ -153,7 +153,7 @@ class Application():
                 data = {
                     'timestamp': event['_timestamp'],
                     'publisher_handle': event['publisher_handle'],
-                    'stamp': event['stamp']
+                    'stamp': event['key_stamp']
                 }
                 publish_instances = publish_instances.append(data, ignore_index=True)
 
@@ -167,14 +167,18 @@ class Application():
         subscribe_instances = pd.DataFrame(columns=[
             'timestamp',
             'stamp',
-            'callback_object'])
+            'callback_object',
+            'source_stamp',
+            'received_stamp'])
 
         for event in events:
             if event['_name'] == 'ros2:rclcpp_subscribe':
                 data = {
                     'timestamp': event['_timestamp'],
-                    'stamp': event['stamp'],
-                    'callback_object': event['callback']
+                    'stamp': event['key_stamp'],
+                    'callback_object': event['callback'],
+                    'source_stamp': event['source_stamp'],
+                    'received_stamp': event['received_stamp']
                 }
                 subscribe_instances = subscribe_instances.append(data, ignore_index=True)
 
@@ -222,14 +226,18 @@ class Application():
 
         for i, publish_record in publish_df_.iterrows():
             subscribe_record = subscribe_df_[subscribe_df_['stamp'] == publish_record['stamp']]
-            duration = None
+            duration_ms = None
+            communication_latency_ms = None
             if len(subscribe_record) == 1:
-                duration = subscribe_record['timestamp'].values[0] - publish_record['timestamp']
+                duration_ms = subscribe_record['timestamp'].values[0] - publish_record['timestamp']
+                communication_latency_ms = (subscribe_record['received_stamp'].values[0] - subscribe_record['source_stamp'].values[0]) * 1.0e-6
+
             data = {
                 'timestamp': publish_record['timestamp'],
                 'publish_object': publish_object,
                 'subscribe_object': subscribe_object,
-                'duration': duration
+                'duration': duration_ms,
+                'communication_latency': communication_latency_ms
             }
             comm_instances = comm_instances.append(data, ignore_index=True)
 
