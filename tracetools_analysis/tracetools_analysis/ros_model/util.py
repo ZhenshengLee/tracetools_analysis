@@ -38,3 +38,27 @@ class DataFrameFilter():
         df.reset_index(inplace=True, drop=True)
 
         return df
+
+class Counter():
+    def __init__(self):
+        self._paths = {}
+        self._counter = {}
+
+    def _get_key(self, path, base_name):
+        if path.child is None:
+            return tuple(base_name)
+        
+        return tuple(set([tuple(path.child), base_name]))
+
+    def add(self, path, base_name):
+        key = self._get_key(path, base_name)
+
+        if path not in self._paths:
+            if base_name not in self._counter:
+                self._counter[base_name] = 0
+            self._paths[key] = self._counter[base_name]
+            self._counter[base_name] += 1
+
+    def get_count(self, path, base_name):
+        key = self._get_key(path, base_name)
+        return self._paths[key]

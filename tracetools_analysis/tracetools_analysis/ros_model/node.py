@@ -2,7 +2,7 @@ import collections.abc
 
 from .search_tree import SearchTree, Path
 from .data_type import Histogram
-from .util import Util
+from .util import Util, Counter
 from .callback import SubscribeCallback, CallbackFactory, CallbackCollection, CallbackPath
 from .sched import Sched, SchedCollection
 from .publish import Publish
@@ -59,8 +59,8 @@ class Node():
         if self.end_node is True:
             paths_ = []
             for callback in self.callbacks.get_subscription():
-                path = Path(child=[callback.path])
-                paths_.append(NodePath(path, self, self.start_node, self.end_node))
+                # path = Path(child=[callback.path])
+                paths_.append(NodePath([callback.path], self, self.start_node, self.end_node))
             return paths_
 
         paths_callback_only = Util.flatten(
@@ -74,8 +74,7 @@ class Node():
                     path_callback_only[:-1], path_callback_only[1:]):
                 child.append(self.__scheds.get(callback_write, callback_read))
                 child.append(callback_read)
-            path = Path(child)
-            paths_.append(NodePath(path, self, self.start_node, self.end_node))
+            paths_.append(NodePath(child, self, self.start_node, self.end_node))
 
         return paths_
 
@@ -146,13 +145,15 @@ class NodeFactory():
 
 
 class NodePath(Path):
-    def __init__(self, path, node, start_node, end_node):
-        super().__init__()
-        self.child = path.child
+    counter = Counter()
+
+    def __init__(self, child, node, start_node, end_node):
+        super().__init__(child)
         self.__node = node
-        self.__path = path
         self.__start_node = start_node
         self.__end_node = end_node
+        self.counter.add(self, node.name)
+        self._index = self.counter.get_count(self, node.name)
 
     @property
     def hist(self):
@@ -183,19 +184,15 @@ class NodePath(Path):
 
     @property
     def name(self):
-        return self.__node.name
-
-    @property
-    def path(self):
-        return self.__path
+        return '{}_{}'.format(self.__node.name, self._index)
 
     @property
     def publish_topics(self):
-        return [pub.topic_name for pub in self.__path.child[-1].publishes]
+        return [pub.topic_name for pub in self.child[-1].publishes]
 
     @property
     def subscribe_topic(self):
-        head_callback = self.__path.child[0]
+        head_callback = self.child[0]
         return head_callback.topic_name
 
     def _get_callback_latencies(self):

@@ -2,15 +2,23 @@ import collections.abc
 
 from .search_tree import Path
 from .node import NodePath
+from .util import Counter
 
 import numpy as np
 
 class Comm(Path):
+    counter = Counter()
+
     def __init__(self, node_pub, node_sub):
         assert(isinstance(node_pub, NodePath))
         assert(isinstance(node_sub, NodePath))
         self.node_pub = node_pub
         self.node_sub = node_sub
+        self.child = []
+
+        topic_name = self.node_sub.child[0].topic_name
+        self.counter.add(self, topic_name)
+        self._index = self.counter.get_count(self, topic_name)
 
     def get_objects(self):
         sub = self.node_sub.child[0]
@@ -31,9 +39,10 @@ class Comm(Path):
         }
         return data
 
+
     @property
     def name(self):
-        return self.node_sub.subscribe_topic
+        return '{}_{}'.format(self.node_sub.subscribe_topic, self._index)
 
 
 class CommCollectionIterator(collections.abc.Iterator):

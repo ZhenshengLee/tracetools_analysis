@@ -2,7 +2,7 @@ from tracetools_analysis.utils.ros2 import Ros2DataModelUtil
 from tracetools_analysis.loading import load_file
 from tracetools_analysis.processor.ros2 import Ros2Handler
 
-from .util import Util, DataFrameFilter
+from .util import Util, DataFrameFilter, Counter
 from .node import Node, NodePath, NodeFactory, NodeCollection
 from .comm import CommCollection, Comm
 from .callback import SubscribeCallback, TimerCallback, Callback
@@ -15,6 +15,14 @@ import numpy as np
 
 
 class End2End(Path):
+    counter = Counter()
+    base_name = 'end_to_end'
+
+    def __init__(self, child):
+        super().__init__(child)
+        self.counter.add(self, self.base_name)
+        self._index = self.counter.get_count(self, self.base_name)
+
     def _get_node_paths(self):
         return list(filter(lambda x: isinstance(x, NodePath), self.child))
 
@@ -28,7 +36,7 @@ class End2End(Path):
 
     @property
     def name(self):
-        return 'end-to-end'
+        return '{}_{}'.format(self.base_name, self._index)
 
 
 class Application():
@@ -78,25 +86,52 @@ class Application():
         self._filter.max_limit = events[-1]['_timestamp'] - end_transition_ms
 
         callback_durations = handler.data.callback_instances
-        callback_durations = self._filter.remove(callback_durations, 'timestamp')
-        assert len(callback_durations) > 0, 'all instance are removed'
+        if len(callback_durations) > 0:
+            callback_durations = self._filter.remove(callback_durations, 'timestamp')
+            assert len(callback_durations) > 0, 'all instance are removed'
         self._import_callback_durations(callback_durations)
 
         sched_instances = self._get_sched_instances(events, self.scheds)
-        sched_instances = self._filter.remove(sched_instances, 'timestamp')
-        assert len(sched_instances) > 0, 'all instance are removed'
+        if len(sched_instances) > 0:
+            sched_instances = self._filter.remove(sched_instances, 'timestamp')
+            assert len(sched_instances) > 0, 'all instance are removed'
         self._import_sched_durations(sched_instances)
 
         comm_instances = self._get_comm_instances(events, self.comms)
-        comm_instances = self._filter.remove(comm_instances, 'timestamp')
+        if len(comm_instances) > 0:
+            comm_instances = self._filter.remove(comm_instances, 'timestamp')
+            assert len(comm_instances) > 0, 'all instance are removed'
         self.comm_instances = comm_instances
-        assert len(comm_instances) > 0, 'all instance are removed'
         self._import_comm_instances(comm_instances)
 
     def export(self, path):
         import json
         with open(path, mode='w') as f:
             f.write(json.dumps(self.get_info(), indent=2))
+
+    def find_path(self, name):
+        def local_find_path(paths, name):
+            for path in paths:
+                if path.name == name:
+                    return path
+                find = local_find_path(path.child, name)
+                if find is not None:
+                    return find
+
+        path = local_find_path(self.paths, name)
+        assert path is not None, 'Failed to find target path :{}'.format(name)
+        return path
+
+    def get_path_list(self):
+        targets = []
+        def local_find_path(paths):
+            for path in paths:
+                if path not in targets:
+                    targets.append(path)
+                local_find_path(path.child)
+
+        local_find_path(self.paths)
+        return targets
 
     def _search_paths(self, nodes):
         node_paths = self.nodes.paths
@@ -195,7 +230,8 @@ class Application():
                                                   publish_instances,
                                                   subscribe_instances) \
                           for comm in comms]
-        comm_instances = pd.concat(comm_instances)
+        if len(comm_instances) > 0:
+            comm_instances = pd.concat(comm_instances)
         return comm_instances
 
     def _get_specific_comm_instances(self, comm, publish_df, subscribe_df):
@@ -218,7 +254,7 @@ class Application():
         publish_df_ = publish_df[publish_df['publisher_handle'] == publish_object]
         publish_df_.reset_index(inplace=True, drop=True)
 
-        subscribe_df_ = subscribe_df[subscribe_df['callback_object'] == subscribe_object] 
+        subscribe_df_ = subscribe_df[subscribe_df['callback_object'] == subscribe_object]
         subscribe_df_.reset_index(inplace=True, drop=True)
 
         assert len(publish_df_)>0
@@ -323,7 +359,8 @@ class Application():
             self._get_specific_sched_instances(sched, callback_end_instances, callback_start_instances)
             for sched in scheds ]
 
-        sched_instances = pd.concat(sched_instances)
+        if len(sched_instances) > 0:
+          sched_instances = pd.concat(sched_instances)
 
         return sched_instances
 
@@ -411,6 +448,7 @@ class ApplicationFactory():
         sub_df_ = sub_df[sub_df['name'] == node.name]
         assert ApplicationFactory._get_duplicate_num_max(sub_df_['topic_name'].values) <= 1, \
             '{} node has same topic_name'.format(node.name)
+
         for i, (_, df) in enumerate(sub_df_.iterrows()):
             if df['topic_name'] in ['/parameter_events']:
                 continue
