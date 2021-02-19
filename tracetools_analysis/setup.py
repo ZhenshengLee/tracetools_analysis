@@ -41,11 +41,14 @@ setup(
     ),
     entry_points={
         'console_scripts': [
-            f'convert = {package_name}.convert:main',
-            f'process = {package_name}.process:main',
-            f'auto = {package_name}.scripts.auto:main',
-            f'cb_durations = {package_name}.scripts.cb_durations:main',
-            f'memory_usage = {package_name}.scripts.memory_usage:main',
+			f'get_analysis_target = {package_name}.test:get_analysis_target',
+			f'trace_analysis = {package_name}.test:trace_analysis',
+			# f'get_analysis_target = {package_name.test.get_analysis_target}'
+            # f'convert = {package_name}.convert:main',
+            # f'process = {package_name}.process:main',
+            # f'auto = {package_name}.scripts.auto:main',
+            # f'cb_durations = {package_name}.scripts.cb_durations:main',
+            # f'memory_usage = {package_name}.scripts.memory_usage:main',
         ],
     },
     license='Apache 2.0',
