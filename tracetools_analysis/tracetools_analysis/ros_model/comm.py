@@ -6,7 +6,7 @@ from .util import Counter
 
 import numpy as np
 
-class Comm(Path):
+class DDS(Path):
     counter = Counter()
 
     def __init__(self, node_pub, node_sub):
@@ -15,6 +15,40 @@ class Comm(Path):
         self.node_pub = node_pub
         self.node_sub = node_sub
         self.child = []
+
+    def get_objects(self):
+        sub = self.node_sub.child[0]
+        sub_topic_name = sub.topic_name
+
+        for pub in self.node_pub.publishes:
+            if pub.topic_name == sub_topic_name:
+                return {'publish': pub.object, 'subscribe': sub.object}
+
+    def get_stats(self):
+        data = {
+            'min': np.min(self.timeseries.raw_nan_removed),
+            'max': np.max(self.timeseries.raw_nan_removed),
+            'median': np.median(self.timeseries.raw_nan_removed),
+            'avg': np.mean(self.timeseries.raw_nan_removed),
+            'send': len(self.timeseries.raw),
+            'lost': len(self.timeseries.raw)-len(self.timeseries.raw_nan_removed)
+        }
+        return data
+
+    @property
+    def name(self):
+        return '{}_{}'.format(self.node_sub.subscribe_topic, self._index)
+
+
+class Comm(Path):
+    counter = Counter()
+
+    def __init__(self, node_pub, node_sub):
+        assert(isinstance(node_pub, NodePath))
+        assert(isinstance(node_sub, NodePath))
+        self.node_pub = node_pub
+        self.node_sub = node_sub
+        self.child = [DDS(node_pub, node_sub)]
 
         topic_name = self.node_sub.child[0].topic_name
         self.counter.add(self, topic_name)

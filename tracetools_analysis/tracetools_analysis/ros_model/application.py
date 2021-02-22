@@ -176,6 +176,9 @@ class Application():
 
             comm.timeseries = Timeseries(duration_records['duration'].values)
             comm.hist = comm.timeseries.to_hist()
+            dds = comm.child[0]
+            dds.timeseries = Timeseries(duration_records['communication_latency'].values)
+            dds.hist = dds.timeseries.to_hist()
 
     def get_publish_instances(self, events):
         publish_instances = pd.DataFrame(columns=[
