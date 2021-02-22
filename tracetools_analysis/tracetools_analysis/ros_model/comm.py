@@ -16,6 +16,10 @@ class DDS(Path):
         self.node_sub = node_sub
         self.child = []
 
+        topic_name = self.node_sub.child[0].topic_name
+        self.counter.add(self, topic_name)
+        self._index = self.counter.get_count(self, topic_name)
+
     def get_objects(self):
         sub = self.node_sub.child[0]
         sub_topic_name = sub.topic_name
@@ -37,7 +41,7 @@ class DDS(Path):
 
     @property
     def name(self):
-        return '{}_{}'.format(self.node_sub.subscribe_topic, self._index)
+        return '{}_dds_{}'.format(self.node_sub.subscribe_topic, self._index)
 
 
 class Comm(Path):
