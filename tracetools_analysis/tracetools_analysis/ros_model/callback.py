@@ -37,6 +37,9 @@ class CallbackCollection(collections.abc.Iterable):
     def __getitem__(self, key):
         return self._callbacks[key]
 
+    def __len__(self):
+        return len(self._callbacks)
+
     def get_timer(self):
         return list(filter(lambda x: isinstance(x, TimerCallback), self._callbacks))
 

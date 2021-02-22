@@ -106,6 +106,9 @@ class CommCollection(collections.abc.Iterable):
     def __getitem__(self, key):
         return self._comms[key]
 
+    def __len__(self):
+        return len(self._comms)
+
     def has(self, node_pub, node_sub):
         assert isinstance(node_pub, NodePath)
         assert isinstance(node_sub, NodePath)

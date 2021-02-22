@@ -108,6 +108,9 @@ class NodeCollection(collections.abc.Iterable):
     def __iter__(self):
         return NodeCollectionIterator(self)
 
+    def __len__(self):
+        return len(self._nodes)
+
     def __getitem__(self, key):
         return self._nodes[key]
 

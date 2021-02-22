@@ -52,6 +52,9 @@ class SchedCollection(collections.abc.Iterable):
     def __iter__(self):
         return SchedCollectionIterator(self)
 
+    def __len__(self):
+        return len(self._scheds)
+
     def __getitem__(self, key):
         return self._scheds[key]
 
