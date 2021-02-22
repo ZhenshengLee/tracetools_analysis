@@ -115,8 +115,9 @@ def get_analysis_target():
         app = ApplicationFactory.create(architecture_path)
         app.import_trace(trace_path)
 
-        for path in app.get_path_list():
-            print(path.name)
+        path_names = [_.name for _ in app.get_path_list()]
+        for path_name in sorted(path_names):
+            print(path_name)
 
     fire.Fire(run)
 
