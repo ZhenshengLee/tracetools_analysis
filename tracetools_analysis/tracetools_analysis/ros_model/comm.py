@@ -54,9 +54,10 @@ class Comm(Path):
         self.node_sub = node_sub
         self.child = [DDS(node_pub, node_sub)]
 
-        topic_name = self.node_sub.child[0].topic_name
+        topic_name = node_sub.child[0].topic_name
         self.counter.add(self, topic_name)
         self._index = self.counter.get_count(self, topic_name)
+
 
     def get_objects(self):
         sub = self.node_sub.child[0]

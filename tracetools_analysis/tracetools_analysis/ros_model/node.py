@@ -162,6 +162,10 @@ class NodePath(Path):
     def hist(self):
         return Histogram.sum([_.hist for _ in self.child])
 
+    @property
+    def node(self):
+        return self.__node
+
     def same_publish(self, node_path):
         return self.child[-1] == node_path.child[-1]
 

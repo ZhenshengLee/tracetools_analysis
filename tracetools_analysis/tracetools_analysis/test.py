@@ -135,7 +135,7 @@ def export_graph(app, export_dir):
 
 def trace_analysis():
     def run(input_yaml_path: str, export_dir: str, trace_path: str, architecture_path: str):
-        """get_analysis_target
+        """ trace_analysis
         judges trace results.
         """
         import os
@@ -151,5 +151,38 @@ def trace_analysis():
 
         output_yaml_path = os.path.join(export_dir, 'output.yaml')
         write_yaml(output_yaml_path, output_obj)
+
+    fire.Fire(run)
+
+def trace_collapse():
+    def run(export_dir: str, trace_path: str, architecture_path: str):
+        """ trace_collapse
+        collapse trace results for flamegraph.
+        """
+        import os
+        from tracetools_analysis.ros_model import Flame
+
+        os.makedirs(os.path.join(export_dir, 'graph'), exist_ok=True)
+
+        app = ApplicationFactory.create(architecture_path)
+        app.import_trace(trace_path)
+
+        for path in app.paths:
+            collapsed_file = os.path.join(export_dir, 'graph', f'{path.name}_collapsed.log')
+            Flame.collapse(path, fd=open(collapsed_file, 'w'))
+
+    fire.Fire(run)
+
+def create_architecture():
+    def run(trace_path: str, architecture_path: str):
+        """ create_architecture
+        create architecture file.
+        """
+        import os
+
+        os.makedirs(os.path.dirname(architecture_path), exist_ok=True)
+
+        app = ApplicationFactory.create(trace_path)
+        app.export(architecture_path)
 
     fire.Fire(run)

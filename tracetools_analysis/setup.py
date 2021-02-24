@@ -41,8 +41,10 @@ setup(
     ),
     entry_points={
         'console_scripts': [
-			f'get_analysis_target = {package_name}.test:get_analysis_target',
+			f'trace_list_target = {package_name}.test:get_analysis_target',
 			f'trace_analysis = {package_name}.test:trace_analysis',
+			f'trace_collapse = {package_name}.test:trace_collapse',
+			f'trace_create_template = {package_name}.test:create_architecture',
 			# f'get_analysis_target = {package_name.test.get_analysis_target}'
             # f'convert = {package_name}.convert:main',
             # f'process = {package_name}.process:main',
