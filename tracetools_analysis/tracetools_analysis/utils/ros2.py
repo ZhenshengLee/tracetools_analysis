@@ -112,9 +112,12 @@ class Ros2DataModelUtil(DataModelUtil):
         symbols_dic = {v: k for k, v in symbols_dic.items()}
         return symbols_dic.get(callback_symbol)
 
-    def get_publish_object(self, node_name, topic_name):
+    def get_publish_object(self, namespace, node_name, topic_name):
         df = self.get_publish_info()
-        publish_record = df[(df['name'] == node_name) & (df['topic_name'] == topic_name)]
+        publish_record = df[
+            (df['name'] == node_name) &
+            (df['namespace'] == namespace) &
+            (df['topic_name'] == topic_name)]
         assert len(publish_record)==1, 'Failed to get publish record'
         return publish_record.index.values[0]
 

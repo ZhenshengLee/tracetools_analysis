@@ -61,11 +61,38 @@ class Application():
     def callbacks(self):
         return Util.flatten([list(node.callbacks) for node in self.nodes])
 
+    def has_start_node(self):
+        for node in self.nodes:
+            if node.start_node:
+                return True
+        return False
+
+    def has_end_node(self):
+        for node in self.nodes:
+            if node.end_node:
+                return True
+        return False
+
     def update_paths(self):
         self.__paths = self._search_paths(self.nodes)
 
     def get_info(self):
+        start_node = self.nodes.get_start_node()
+        end_node = self.nodes.get_end_node()
+
+        start_node_name = ''
+        end_node_name = ''
+
+        if start_node is not None:
+            start_node_name = f'{start_node.ns}{start_node.name}'
+        if end_node is not None:
+            end_node_name = f'{end_node.ns}{end_node.name}'
+
         info = {
+            'target_path': {
+                'start_node_name': start_node_name,
+                'end_node_name': end_node_name,
+            },
             'nodes': [node.get_info() for node in self.nodes]
         }
         return info
@@ -369,7 +396,8 @@ class Application():
     def _insert_publish_object(self, data_util, nodes):
         for node in nodes:
             for pub in node.publishes:
-                pub.object = data_util.get_publish_object(node.name, pub.topic_name)
+                pub.object = data_util.get_publish_object(
+                    namespace=node.ns, node_name=node.name, topic_name=pub.topic_name)
 
     def _insert_callback_object(self, data_util):
         # トレース結果のcallback objectを挿入
@@ -403,9 +431,21 @@ class ApplicationFactory():
                                 cb_pub=pub.callback, cb_sub=sub)
                     app.comms.append(comm)
 
+        ns, name = Util.to_ns_and_name(app_info['target_path']['start_node_name'])
+        node = app.nodes.get_node(ns, name)
+        if node is not None:
+            node.start_node = True
+
+        ns, name = Util.to_ns_and_name(app_info['target_path']['end_node_name'])
+        node = app.nodes.get_node(ns, name)
+        if node is not None:
+            node.end_node = True
+
         # find subsequent comms
         node_paths = Util.flatten([node.paths for node in app.nodes])
         for node_path, comm in itertools.product(node_paths, app.comms):
+            if comm.cb_pub is None:
+                continue
             # TODO: clean
             if node_path.child[-1].symbol == comm.cb_pub.symbol:
                 node_path.subsequent.append(comm)
@@ -428,7 +468,8 @@ class ApplicationFactory():
         sub_df = data_util.get_subscribe_info()
         pub_df = data_util.get_publish_info()
 
-        node = Node(name=node_info['name'], ns=node_info['namespace'])
+        ns, name = Util.to_ns_and_name(node_info['name'])
+        node = Node(ns=ns, name=name)
 
         timer_df_ = timer_df[timer_df['name'] == node.name]
         assert ApplicationFactory._get_duplicate_num_max(timer_df_['period'].values) <= 1,\
@@ -452,8 +493,12 @@ class ApplicationFactory():
         for _, df in pub_df_.iterrows():
             if df['topic_name'] in ['/rosout', '/parameter_events']:
                 continue
-            node.pubs.append(
-                Publish(topic_name=df['topic_name'], callback=None))
+            if len(node.callbacks) == 1:
+                node.pubs.append(
+                    Publish(topic_name=df['topic_name'], callback=node.callbacks[0]))
+            else:
+                node.pubs.append(
+                    Publish(topic_name=df['topic_name'], callback=None))
         return node
 
     @classmethod

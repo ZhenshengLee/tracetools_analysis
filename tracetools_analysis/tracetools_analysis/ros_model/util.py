@@ -21,6 +21,13 @@ class Util():
     def get_ext(cls, path):
         return os.path.basename(path).split('.')[-1]
 
+    @classmethod
+    def to_ns_and_name(cls, nodename):
+        strs = nodename.split('/')
+        ns = '/'.join(strs[:-1])+'/'
+        name = strs[-1]
+        return ns, name
+
 
 class DataFrameFilter():
 

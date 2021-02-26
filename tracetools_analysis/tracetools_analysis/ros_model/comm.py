@@ -57,7 +57,7 @@ class Comm(Path):
         self.cb_pub = cb_pub
         self.cb_sub = cb_sub
 
-        self.counter.add(self, self.topic_name) # TODO: index 確認
+        self.counter.add(self, self.topic_name)
         self._index = self.counter.get_count(self, self.topic_name)
         self.publish = publish
 
@@ -127,3 +127,6 @@ class CommCollection(collections.abc.Iterable):
                comm.topic_name == topic_name:
                 return comm
         return None
+
+    def get_unlinked(self):
+        return [comm for comm in self._comms if comm.cb_pub is None]
