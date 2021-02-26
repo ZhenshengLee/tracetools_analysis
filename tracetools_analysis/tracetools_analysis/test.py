@@ -186,3 +186,19 @@ def create_architecture():
         app.export(architecture_path)
 
     fire.Fire(run)
+
+
+def draw_node_graph():
+    def run(architecture_path: str, png_path: str):
+        """ draw_node_graph
+        create architecture node graph.
+        """
+        import os
+        from .test_interface import node_graph
+
+        os.makedirs(os.path.dirname(architecture_path), exist_ok=True)
+
+        app = ApplicationFactory.create_from_json(architecture_path)
+        node_graph.draw_node_graph(app, png_path)
+
+    fire.Fire(run)
