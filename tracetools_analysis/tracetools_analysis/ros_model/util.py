@@ -47,7 +47,7 @@ class Counter():
     def _get_key(self, path, base_name):
         if path.child is None:
             return tuple(base_name)
-        
+
         return tuple(set([tuple(path.child), base_name]))
 
     def add(self, path, base_name):

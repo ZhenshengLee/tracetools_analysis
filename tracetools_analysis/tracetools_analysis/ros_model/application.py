@@ -7,7 +7,7 @@ from .node import Node, NodePath, NodeFactory, NodeCollection
 from .comm import CommCollection, Comm
 from .callback import SubscribeCallback, TimerCallback, Callback
 from .publish import Publish
-from .search_tree import SearchTree, Path
+from .search_tree import SearchTree, Path, PathCollection
 from .data_type import Timeseries, Histogram
 
 import pandas as pd
@@ -72,6 +72,7 @@ class Application():
 
     def import_trace(self, trace_dir, start_transition_ms=0, end_transition_ms=0):
         assert(self.nodes != [])
+
         events = load_file(trace_dir)
         self.events = events
         for event in events:
@@ -134,29 +135,13 @@ class Application():
         return targets
 
     def _search_paths(self, nodes):
-        node_paths = self.nodes.paths
-        # find subsequent nodes
-        for node_path in node_paths:
-            node_path.subsequent = self.nodes.get_subsequent_paths(node_path)
-
         # search all path
-        paths_node_only = []
+        paths = PathCollection()
         for node_path in self.nodes.get_root_paths():
-            paths_node_only += SearchTree.search(node_path)
+            for child in SearchTree.search(node_path):
+                if not paths.has(child):
+                    paths.append(End2End(child))
 
-        for path_node_only in paths_node_only:
-            for node_pub, node_sub in zip(path_node_only[:-1], path_node_only[1:]):
-                if not self.comms.has(node_pub, node_sub):
-                    self.comms.append(Comm(node_pub, node_sub))
-
-        # create path objects and insert communication latency
-        paths = []
-        for path_node_only in paths_node_only:
-            child = [path_node_only[0]]
-            for node_pub, node_sub in zip(path_node_only[:-1], path_node_only[1:]):
-                child.append(self.comms.get(node_pub, node_sub))
-                child.append(node_sub)
-            paths.append(End2End(child))
         return paths
 
     def _import_callback_durations(self, callback_instances):
@@ -240,11 +225,10 @@ class Application():
     def _get_specific_comm_instances(self, comm, publish_df, subscribe_df):
         assert isinstance(publish_df, pd.DataFrame)
         assert isinstance(subscribe_df, pd.DataFrame)
-        assert len(publish_df)>0
-        assert len(subscribe_df)>0
+        assert len(publish_df) > 0
+        assert len(subscribe_df) > 0
 
         obj = comm.get_objects()
-
         publish_object = obj['publish']
         subscribe_object = obj['subscribe']
 
@@ -260,8 +244,8 @@ class Application():
         subscribe_df_ = subscribe_df[subscribe_df['callback_object'] == subscribe_object]
         subscribe_df_.reset_index(inplace=True, drop=True)
 
-        assert len(publish_df_)>0
-        assert len(subscribe_df_)>0
+        assert len(publish_df_)>0, 'failed to get publish records'
+        assert len(subscribe_df_)>0,'failed to get subscribe records'
 
         for i, publish_record in publish_df_.iterrows():
             subscribe_record = subscribe_df_[subscribe_df_['stamp'] == publish_record['stamp']]
@@ -294,34 +278,34 @@ class Application():
             'callback_out_object',
             'duration'])
 
-        callback_end_instances_ = callback_end_instances[callback_end_instances['callback_in_object'] == sched.callback_in.object].reset_index(drop=True)
-        callback_start_instances_ = callback_start_instances[callback_start_instances['callback_out_object'] == sched.callback_out.object].reset_index(drop=True)
+        start_instances = callback_start_instances[
+            callback_start_instances['callback_out_object'] == sched.callback_out.object]
+        end_instances = callback_end_instances[
+            callback_end_instances['callback_in_object'] == sched.callback_in.object]
 
-        assert len(callback_end_instances_)>0
-        assert len(callback_start_instances_)>0
+        start_instances = start_instances.assign(instance_type='start')
+        end_instances = end_instances.assign(instance_type='end')
 
-        callback_start_idx = 0
-        for callback_end_idx in range(len(callback_end_instances_)):
-            is_last_record = callback_end_idx == len(callback_end_instances_) - 1
-            target_end_record = callback_end_instances_.iloc[callback_end_idx]
-            next_end_record = None
-            if not is_last_record:
-                next_end_record  = callback_end_instances_.iloc[callback_end_idx+1]
-            if callback_start_idx not in callback_start_instances_.index:
-                break
-            next_start_record = callback_start_instances_.iloc[callback_start_idx]
+        start_instances.drop('callback_out_object', axis=1)
+        end_instances.drop('callback_in_object', axis=1, inplace=True)
 
-            duration = None
-            if is_last_record or next_start_record['timestamp'] < next_end_record['timestamp']:
-                callback_start_idx += 1
-                duration = next_start_record['timestamp'] - target_end_record['timestamp']
-            data = {
-                'timestamp': target_end_record['timestamp'],
-                'callback_in_object': sched.callback_in.object,
-                'callback_out_object': sched.callback_out.object,
-                'duration': duration
-            }
-            sched_instances = sched_instances.append(data, ignore_index=True)
+        assert len(end_instances) > 0
+        assert len(start_instances) > 0
+
+        instances = pd.concat([start_instances, end_instances]).sort_values('timestamp')
+        instances.reset_index(drop=True, inplace=True)
+
+        instances_list = list(instances.itertuples())
+        for row_, row in zip(instances_list[:-1], instances_list[1:]):
+            if row_.instance_type == 'end' and row.instance_type == 'start':
+                duration = row.timestamp - row_.timestamp
+                data = {
+                    'timestamp': row.timestamp,
+                    'callback_in_object': sched.callback_in.object,
+                    'callback_out_object': sched.callback_out.object,
+                    'duration': duration
+                }
+                sched_instances = sched_instances.append(data, ignore_index=True)
         return sched_instances
 
     def _get_callback_end_instances(self, events):
@@ -360,7 +344,7 @@ class Application():
 
         sched_instances = [
             self._get_specific_sched_instances(sched, callback_end_instances, callback_start_instances)
-            for sched in scheds ]
+            for sched in scheds]
 
         if len(sched_instances) > 0:
           sched_instances = pd.concat(sched_instances)
@@ -398,30 +382,35 @@ class Application():
 
 
 class ApplicationFactory():
-    @classmethod
-    def create(cls, path):
-        ext = Util.get_ext(path)
-        if ext == 'json':
-            return ApplicationFactory._create_from_json(path)
-        else:
-            return ApplicationFactory._create_from_trace(path)
 
     @classmethod
-    def _create_from_json(cls, path):
-        app = Application()
+    def create_from_json(cls, path):
+        import itertools
         import json
+
+        app = Application()
+
         with open(path, 'r') as f:
             app_info = json.load(f)
 
         for node_info in app_info['nodes']:
             app.nodes.append(NodeFactory.create(node_info))
 
-        # find subsequent nodes
+        for node_pub, node_sub in itertools.product(app.nodes, app.nodes):
+            for pub, sub in itertools.product(node_pub.pubs, node_sub.subs):
+                if pub.topic_name == sub.topic_name:
+                    comm = Comm(pub, node_pub, node_sub,
+                                cb_pub=pub.callback, cb_sub=sub)
+                    app.comms.append(comm)
+
+        # find subsequent comms
         node_paths = Util.flatten([node.paths for node in app.nodes])
-        for node in node_paths:
-            for node_ in node_paths:
-                if node_.subscribe_topic in node.publish_topics:
-                    node.subsequent.append(node_)
+        for node_path, comm in itertools.product(node_paths, app.comms):
+            # TODO: clean
+            if node_path.child[-1].symbol == comm.cb_pub.symbol:
+                node_path.subsequent.append(comm)
+            if node_path.child[0].symbol == comm.cb_sub.symbol:
+                comm.subsequent.append(node_path)
 
         app.update_paths()
         return app
@@ -445,7 +434,7 @@ class ApplicationFactory():
         assert ApplicationFactory._get_duplicate_num_max(timer_df_['period'].values) <= 1,\
             '{} node has same period'.format(node.name)
         for i, (_, df) in enumerate(timer_df_.iterrows()):
-            callback = TimerCallback(period=df['period'], symbol=df['symbol'])
+            callback = TimerCallback(node=node, period=df['period'], symbol=df['symbol'])
             node.callbacks.append(callback)
 
         sub_df_ = sub_df[sub_df['name'] == node.name]
@@ -455,7 +444,7 @@ class ApplicationFactory():
         for i, (_, df) in enumerate(sub_df_.iterrows()):
             if df['topic_name'] in ['/parameter_events']:
                 continue
-            callback = SubscribeCallback(
+            callback = SubscribeCallback(node=node,
                 topic_name=df['topic_name'], symbol=df['symbol'])
             node.callbacks.append(callback)
 
@@ -463,8 +452,8 @@ class ApplicationFactory():
         for _, df in pub_df_.iterrows():
             if df['topic_name'] in ['/rosout', '/parameter_events']:
                 continue
-            node.unlinked_publishes.append(
-                Publish(topic_name=df['topic_name']))
+            node.pubs.append(
+                Publish(topic_name=df['topic_name'], callback=None))
         return node
 
     @classmethod
@@ -476,7 +465,7 @@ class ApplicationFactory():
         return app
 
     @classmethod
-    def _create_from_trace(cls, path):
+    def create_from_trace(cls, path):
         events = load_file(path)
 
         for event in events:

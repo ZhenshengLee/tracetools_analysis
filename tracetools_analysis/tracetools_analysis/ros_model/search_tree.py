@@ -1,19 +1,20 @@
 import numpy as np
+import collections.abc
 
 class SearchNode():
     def __init__(self):
-        self.__subsequent = []
+        self._subsequent = []
 
     def is_target(self):
         return False
 
     @property
     def subsequent(self):
-        return self.__subsequent
+        return self._subsequent
 
     @subsequent.setter
     def subsequent(self, subsequent_):
-        self.__subsequent = subsequent_
+        self._subsequent = subsequent_
 
 
 class SearchTree():
@@ -41,9 +42,6 @@ class Path(SearchNode):
         self._hist = None
         self._timeseries = None
         self.child = child
-
-        if self.child != []:
-            self.subsequent = child[-1].subsequent
 
     @property
     def child(self):
@@ -84,3 +82,40 @@ class Path(SearchNode):
             if path._hist is None:
                 return False
         return True
+
+class PathCollection(collections.abc.Iterable):
+    def __init__(self):
+        self._paths = []
+
+    def __getitem__(self, key):
+        return self._paths[key]
+
+    def __len__(self):
+        return len(self._paths)
+
+    def __iter__(self):
+        return PathsCollectionIterator(self)
+
+    def append(self, path):
+        assert(isinstance(path, Path))
+        self._paths.append(path)
+
+    def has(self, child):
+        for path in self._paths:
+            if child == path.child:
+                return True
+        return False
+
+
+class PathsCollectionIterator(collections.abc.Iterator):
+    def __init__(self, paths_collection):
+        self._i = 0
+        self._paths_collection = paths_collection
+
+    def __next__(self):
+        try:
+            v = self._paths_collection._paths[self._i]
+            self._i += 1
+            return v
+        except IndexError:
+            raise StopIteration

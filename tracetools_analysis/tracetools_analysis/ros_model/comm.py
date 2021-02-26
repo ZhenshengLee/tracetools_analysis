@@ -1,32 +1,28 @@
 import collections.abc
 
 from .search_tree import Path
-from .node import NodePath
+from .node import NodePath, Node
 from .util import Counter
+from .callback import SubscribeCallback
+from .publish import Publish
 
 import numpy as np
 
 class DDS(Path):
     counter = Counter()
 
-    def __init__(self, node_pub, node_sub):
-        assert(isinstance(node_pub, NodePath))
-        assert(isinstance(node_sub, NodePath))
+    def __init__(self, publish, node_pub, node_sub):
+        self.child = []
+        super().__init__(self.child)
+        assert(isinstance(node_pub, Node))
+        assert(isinstance(node_sub, Node))
         self.node_pub = node_pub
         self.node_sub = node_sub
-        self.child = []
+        self.publish = publish
+        self.topic_name = publish.topic_name
 
-        topic_name = self.node_sub.child[0].topic_name
-        self.counter.add(self, topic_name)
-        self._index = self.counter.get_count(self, topic_name)
-
-    def get_objects(self):
-        sub = self.node_sub.child[0]
-        sub_topic_name = sub.topic_name
-
-        for pub in self.node_pub.publishes:
-            if pub.topic_name == sub_topic_name:
-                return {'publish': pub.object, 'subscribe': sub.object}
+        self.counter.add(self, self.topic_name)
+        self._index = self.counter.get_count(self, self.topic_name)
 
     def get_stats(self):
         data = {
@@ -41,31 +37,32 @@ class DDS(Path):
 
     @property
     def name(self):
-        return '{}_dds_{}'.format(self.node_sub.subscribe_topic, self._index)
+        return '{}_dds_{}'.format(self.topic_name, self._index)
 
 
 class Comm(Path):
     counter = Counter()
 
-    def __init__(self, node_pub, node_sub):
-        assert(isinstance(node_pub, NodePath))
-        assert(isinstance(node_sub, NodePath))
+    def __init__(self, publish, node_pub, node_sub, cb_pub, cb_sub):
+        assert(isinstance(node_pub, Node))
+        assert(isinstance(node_sub, Node))
+        assert(isinstance(publish, Publish))
+
+        self.child = [DDS(publish, node_pub, node_sub)]
+        super().__init__(self.child)
+
+        self.topic_name = publish.topic_name
         self.node_pub = node_pub
         self.node_sub = node_sub
-        self.child = [DDS(node_pub, node_sub)]
+        self.cb_pub = cb_pub
+        self.cb_sub = cb_sub
 
-        topic_name = node_sub.child[0].topic_name
-        self.counter.add(self, topic_name)
-        self._index = self.counter.get_count(self, topic_name)
-
+        self.counter.add(self, self.topic_name) # TODO: index 確認
+        self._index = self.counter.get_count(self, self.topic_name)
+        self.publish = publish
 
     def get_objects(self):
-        sub = self.node_sub.child[0]
-        sub_topic_name = sub.topic_name
-
-        for pub in self.node_pub.publishes:
-            if pub.topic_name == sub_topic_name:
-                return {'publish': pub.object, 'subscribe': sub.object}
+        return {'publish': self.publish.object, 'subscribe': self.cb_sub.object}
 
     def get_stats(self):
         data = {
@@ -78,10 +75,9 @@ class Comm(Path):
         }
         return data
 
-
     @property
     def name(self):
-        return '{}_{}'.format(self.node_sub.subscribe_topic, self._index)
+        return '{}_{}'.format(self.topic_name, self._index)
 
 
 class CommCollectionIterator(collections.abc.Iterator):
@@ -121,8 +117,13 @@ class CommCollection(collections.abc.Iterable):
         return self.get(node_pub, node_sub) is not None
 
     def get(self, node_pub, node_sub):
+        assert isinstance(node_pub, NodePath)
+        assert isinstance(node_sub, NodePath)
+
+        topic_name = node_sub.child[0].topic_name
         for comm in self._comms:
-            if comm.node_pub.same_publish(node_pub) and \
-               comm.node_sub.same_subscription(node_sub):
+            if comm.node_pub == node_pub.node and \
+               comm.node_sub == node_sub.node and \
+               comm.topic_name == topic_name:
                 return comm
         return None

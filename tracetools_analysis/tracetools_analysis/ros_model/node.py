@@ -5,7 +5,7 @@ from .data_type import Histogram
 from .util import Util, Counter
 from .callback import SubscribeCallback, CallbackFactory, CallbackCollection, CallbackPath
 from .sched import Sched, SchedCollection
-from .publish import Publish
+from .publish import Publish, PublishCollection
 
 
 class Node():
@@ -16,40 +16,37 @@ class Node():
         self.start_node = start_node
         self.end_node = end_node
         self.callbacks = CallbackCollection()
-        self.__scheds = SchedCollection()
-        self.unlinked_publishes = []
+        self.scheds = SchedCollection()
+        self.pubs = PublishCollection()
         self.__paths = []
+
+    @property
+    def subs (self):
+        return [cb for cb in self.callbacks if isinstance(cb, SubscribeCallback)]
 
     @property
     def paths(self):
         return self.__paths
 
     @property
-    def scheds(self):
-        return self.__scheds
-
-    @property
     def publish_topics(self):
         return [pub.topic_name for pub in self.publishes()]
 
     @property
-    def subscribe_topics(self):
-        return list(self.subscribe_callbacks.keys())
-
-    @property
     def publishes(self):
-        return Util.flatten([cb.publishes for cb in self.callbacks])
+        return self.pubs
 
     def get_info(self):
         info = {
             'name': self.name,
             'namespace': self.ns,
-            'start_node': self.start_node,
-            'end_node': self.end_node,
             'callbacks': [
                 cb.get_info() for cb in self.callbacks],
-            'unlinked_publish_topic_names': [
-                pub.topic_name for pub in self.unlinked_publishes]}
+            'callback_dependency': self.scheds.get_info(),
+            'publish': self.pubs.get_info(),
+            'start_node': self.start_node,
+            'end_node': self.end_node
+        }
         return info
 
     def update_paths(self):
@@ -59,7 +56,6 @@ class Node():
         if self.end_node is True:
             paths_ = []
             for callback in self.callbacks.get_subscription():
-                # path = Path(child=[callback.path])
                 paths_.append(NodePath([callback.path], self, self.start_node, self.end_node))
             return paths_
 
@@ -69,12 +65,7 @@ class Node():
         # create path object and insert sched latency
         paths_ = []
         for path_callback_only in paths_callback_only:
-            child = [path_callback_only[0]]
-            for callback_write, callback_read in zip(
-                    path_callback_only[:-1], path_callback_only[1:]):
-                child.append(self.__scheds.get(callback_write, callback_read))
-                child.append(callback_read)
-            paths_.append(NodePath(child, self, self.start_node, self.end_node))
+            paths_.append(NodePath(path_callback_only, self, self.start_node, self.end_node))
 
         return paths_
 
@@ -125,23 +116,29 @@ class NodeFactory():
                     )
 
         for callback_info in node_info['callbacks']:
-            node.callbacks.append(CallbackFactory.create(callback_info))
+            node.callbacks.append(CallbackFactory.create(callback_info, node))
 
-        for callback_info in node_info['callbacks']:
-            callback = node.callbacks.get_from_symbol(callback_info['symbol']).path
+        for depend_from_symbol, depend_to_symbol in node_info['callback_dependency'].items():
+            if depend_from_symbol == '':
+                continue
+            depend_from = node.callbacks.get_from_symbol(depend_from_symbol)
+            depend_to = node.callbacks.get_from_symbol(depend_to_symbol)
+            assert depend_from is not None, f'Failed to get {depend_from_symbol}'
+            assert depend_to is not None, f'Failed to get {depend_to_symbol}'
+            node.scheds.append(Sched(depend_from, depend_to))
 
-            for subsequent_callback_symbol in callback_info['subsequent_callback_symbols']:
-                subsequent_callback = node.callbacks.get_from_symbol(subsequent_callback_symbol).path
-                if not node.scheds.has(callback, subsequent_callback):
-                    node.scheds.append(Sched(callback, subsequent_callback))
+        for topic_name, cb_symbol in node_info['publish'].items():
+            if topic_name == '':
+                continue
+            callback = node.callbacks.get_from_symbol(cb_symbol)
+            node.pubs.append(Publish(topic_name=topic_name, callback=callback))
 
-
-        # find subsequent callback and insert sched object
-        for callback_info in node_info['callbacks']:
-            callback = node.callbacks.get_from_symbol(callback_info['symbol']).path
-            for subsequent_callback_symbol in callback_info['subsequent_callback_symbols']:
-                subsequent_callback = node.callbacks.get_from_symbol(subsequent_callback_symbol).path
-                callback.subsequent.append(subsequent_callback)
+        import itertools
+        for cb, sched in itertools.product(node.callbacks, node.scheds):
+            if cb == sched.callback_in:
+                cb.path.subsequent.append(sched)
+            if sched.callback_out == cb:
+                sched.subsequent.append(cb.path)
 
         node.update_paths()
         return node
@@ -171,7 +168,6 @@ class NodePath(Path):
 
     def same_subscription(self, node_path):
         return self.child[0] == node_path.child[0]
-
 
     @property
     def start_node(self):

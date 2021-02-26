@@ -112,7 +112,7 @@ def get_analysis_target():
         """get_analysis_target
         list up all analysis target.
         """
-        app = ApplicationFactory.create(architecture_path)
+        app = ApplicationFactory.create_from_json(architecture_path)
         app.import_trace(trace_path)
 
         path_names = [_.name for _ in app.get_path_list()]
@@ -140,7 +140,7 @@ def trace_analysis():
         """
         import os
 
-        app = ApplicationFactory.create(architecture_path)
+        app = ApplicationFactory.create_from_json(architecture_path)
         app.import_trace(trace_path)
 
         input_obj = read_yaml(input_yaml_path)
@@ -164,7 +164,7 @@ def trace_collapse():
 
         os.makedirs(os.path.join(export_dir, 'graph'), exist_ok=True)
 
-        app = ApplicationFactory.create(architecture_path)
+        app = ApplicationFactory.create_from_json(architecture_path)
         app.import_trace(trace_path)
 
         for path in app.paths:
@@ -182,7 +182,7 @@ def create_architecture():
 
         os.makedirs(os.path.dirname(architecture_path), exist_ok=True)
 
-        app = ApplicationFactory.create(trace_path)
+        app = ApplicationFactory.create_from_trace(trace_path)
         app.export(architecture_path)
 
     fire.Fire(run)

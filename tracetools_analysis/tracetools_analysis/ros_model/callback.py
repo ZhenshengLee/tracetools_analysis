@@ -32,7 +32,7 @@ class CallbackCollection(collections.abc.Iterable):
            if callback.symbol == symbol:
                 return callback
 
-        raise KeyError('failed to find Callback object. symbol:{}'.format(symbol))
+        return None
 
     def __getitem__(self, key):
         return self._callbacks[key]
@@ -54,39 +54,39 @@ class CallbackFactory():
     ignore_topic_name = ['/rosout', '/parameter_events']
 
     @classmethod
-    def create(cls, callback_info):
+    def create(cls, callback_info, node):
         if callback_info['type'] == 'timer_callback':
             callback = TimerCallback(
+                node=node,
                 period=callback_info['period'], symbol=callback_info['symbol'])
         elif callback_info['type'] == 'subscribe_callback':
             if callback_info['topic_name'] in CallbackFactory.ignore_topic_name:
                 return
             callback = SubscribeCallback(
+                node=node,
                 topic_name=callback_info['topic_name'], symbol=callback_info['symbol'])
-
-        for topic_name in callback_info['publish_topic_names']:
-            if topic_name in CallbackFactory.ignore_topic_name:
-                continue
-            callback.publishes.append(Publish(topic_name=topic_name))
 
         return callback
 
 
 class Callback():
-    def __init__(self, symbol=None, object=None):
-        self.publishes = []
+    def __init__(self, node, symbol=None):
+        self.node = node
         self.symbol = symbol
-        self.object = object
+        self.object = None
         self.path = CallbackPath(self)
 
-    def has_publish(self, topic_name=None):
-        if topic_name is None:
-            return len(self.publishes) > 0
-        return topic_name in [pub.topic_name for pub in self.publishes]
+    def has_publish(self):
+        return self in self.node.pubs.callbacks()
+
+    @property
+    def publishes(self):
+        return [pub for pub in self.node.pubs if pub.callback == self]
 
     @property
     def hist(self):
         return self.path.hist
+
     @hist.setter
     def timeseries(self, timeseries):
         self.path.hist = timeseries
@@ -98,7 +98,6 @@ class Callback():
     @timeseries.setter
     def timeseries(self, timeseries):
         self.path.timeseries = timeseries
-
 
     @property
     def name(self):
@@ -161,34 +160,28 @@ class CallbackPath(Path):
 
 
 class TimerCallback(Callback):
-    def __init__(self, period=None, symbol=None):
-        super().__init__(symbol)
+    def __init__(self, node, period=None, symbol=None):
+        super().__init__(node=node, symbol=symbol)
         self.period = period
-        self.publishes = []
 
     def get_info(self):
         info = {
             'type': 'timer_callback',
             'period': self.period,
             'symbol': self.symbol,
-            'subsequent_callback_symbols': [cb.symbol for cb in self.path.subsequent],
-            'publish_topic_names': [pub.topic_name for pub in self.publishes],
         }
         return info
 
 
 class SubscribeCallback(Callback):
-    def __init__(self, topic_name=None, symbol=None):
-        super().__init__(symbol)
+    def __init__(self, node, topic_name=None, symbol=None):
+        super().__init__(node=node, symbol=symbol)
         self.topic_name = topic_name
-        self.publishes = []
 
     def get_info(self):
         info = {
             'type': 'subscribe_callback',
             'topic_name': self.topic_name,
             'symbol': self.symbol,
-            'publish_topic_names': [pub.topic_name for pub in self.publishes],
-            'subsequent_callback_symbols': [cb.symbol for cb in self.path.subsequent]
         }
         return info

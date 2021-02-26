@@ -23,7 +23,7 @@ class SchedCollection(collections.abc.Iterable):
         self._scheds = []
 
     def append(self, sched):
-        assert(isinstance(sched, Sched))
+        assert(isinstance(sched, Sched)), sched
         self._scheds.append(sched)
 
     def get(self, callback_in, callback_out):
@@ -32,6 +32,14 @@ class SchedCollection(collections.abc.Iterable):
 
         scheds = list(filter(lambda x: f(x), self._scheds))
         return scheds[0]
+
+    def get_info(self):
+        callback_dependency = {}
+        for sched in self._scheds:
+            callback_dependency[sched.callback_in.symbol] = sched.callback_out.symbol
+        if len(callback_dependency) == 0:
+            callback_dependency[''] = ''
+        return callback_dependency
 
     def has(self, callback_in, callback_out):
         for sched in self._scheds:
@@ -61,8 +69,8 @@ class SchedCollection(collections.abc.Iterable):
 
 class Sched(Path):
     def __init__(self, callback_in, callback_out):
-        assert isinstance(callback_in, CallbackPath)
-        assert isinstance(callback_out, CallbackPath)
+        assert isinstance(callback_in, Callback), callback_in
+        assert isinstance(callback_out, Callback), callback_out
 
         super().__init__()
         self.callback_in = callback_in
