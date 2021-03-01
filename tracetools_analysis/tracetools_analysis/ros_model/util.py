@@ -28,6 +28,20 @@ class Util():
         name = strs[-1]
         return ns, name
 
+    @classmethod
+    def get_stats_from_hist(cls, hist):
+        import numpy as np
+        hist_raw = hist.raw
+        measured_latency = np.where(hist_raw > 0)[0]
+        latency = np.arange(len(hist_raw)) + 1
+        stats = {
+            'max': measured_latency[-1],
+            'min': measured_latency[0],
+            'median': np.argmax(hist_raw),
+            'mean': np.sum(latency * hist_raw)
+        }
+        return stats
+
 
 class DataFrameFilter():
 

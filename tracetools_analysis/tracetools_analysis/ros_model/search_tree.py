@@ -83,6 +83,9 @@ class Path(SearchNode):
                 return False
         return True
 
+    def get_stats(self):
+        return
+
 class PathCollection(collections.abc.Iterable):
     def __init__(self):
         self._paths = []

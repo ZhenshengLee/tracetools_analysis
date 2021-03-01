@@ -237,6 +237,9 @@ class NodePath(Path):
     def is_target(self):
         return self.end_node
 
+    def get_stats(self):
+        return Util.get_stats_from_hist(self.hist)
+
 
 class NodeCollectionIterator(collections.abc.Iterator):
     def __init__(self, node_collection):

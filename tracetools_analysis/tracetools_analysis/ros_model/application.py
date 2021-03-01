@@ -38,6 +38,9 @@ class End2End(Path):
     def name(self):
         return '{}_{}'.format(self.base_name, self._index)
 
+    def get_stats(self):
+        return Util.get_stats_from_hist(self.hist)
+
 
 class Application():
     def __init__(self):
