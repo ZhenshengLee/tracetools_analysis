@@ -29,7 +29,7 @@ class DDS(Path):
             'min': np.min(self.timeseries.raw_nan_removed),
             'max': np.max(self.timeseries.raw_nan_removed),
             'median': np.median(self.timeseries.raw_nan_removed),
-            'avg': np.mean(self.timeseries.raw_nan_removed),
+            'mean': np.mean(self.timeseries.raw_nan_removed),
             'send': len(self.timeseries.raw),
             'lost': len(self.timeseries.raw)-len(self.timeseries.raw_nan_removed)
         }
@@ -69,7 +69,7 @@ class Comm(Path):
             'min': np.min(self.timeseries.raw_nan_removed),
             'max': np.max(self.timeseries.raw_nan_removed),
             'median': np.median(self.timeseries.raw_nan_removed),
-            'avg': np.mean(self.timeseries.raw_nan_removed),
+            'mean': np.mean(self.timeseries.raw_nan_removed),
             'send': len(self.timeseries.raw),
             'lost': len(self.timeseries.raw)-len(self.timeseries.raw_nan_removed)
         }
