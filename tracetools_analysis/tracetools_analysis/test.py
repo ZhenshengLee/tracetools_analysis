@@ -189,7 +189,7 @@ def create_architecture():
 
 
 def draw_node_graph():
-    def run(architecture_path: str, png_path: str):
+    def run(architecture_path: str, png_path: str, target_path=''):
         """ draw_node_graph
         create architecture node graph.
         """
@@ -199,6 +199,6 @@ def draw_node_graph():
         os.makedirs(os.path.dirname(architecture_path), exist_ok=True)
 
         app = ApplicationFactory.create_from_json(architecture_path)
-        node_graph.draw_node_graph(app, png_path)
+        node_graph.draw_node_graph(app, png_path, target_path)
 
     fire.Fire(run)

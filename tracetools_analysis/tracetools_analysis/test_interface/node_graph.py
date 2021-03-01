@@ -1,5 +1,6 @@
 import pygraphviz as pgv
 from ..ros_model.application import Application
+from ..ros_model.util import Util
 
 def lambda_pretty(func_name):
     import re
@@ -9,13 +10,72 @@ def lambda_pretty(func_name):
 def to_cluster_name(node):
     return f'cluster_{node.name}'
 
-def draw_node_graph(app, png_path):
+def get_highlit_items(app, target_path):
+    for path in app.paths:
+        if path.name == target_path:
+            comms = path.child[1::2]
+            nodes = path.child[0::2]
+            callback_paths = Util.flatten([_.child[0::2] for _ in nodes])
+            highlight = {
+                'comm': comms,
+                'callback': Util.flatten([_.child[0::2] for _ in nodes]),
+                'sched': Util.flatten([_.child[1::2] for _ in nodes])
+            }
+            return highlight
+
+    for path in app.nodes.paths:
+        if path.name == target_path:
+            highlight = {
+                'comm': [],
+                'callback': path.child[0::2],
+                'sched': path.child[1::2]
+            }
+            return highlight
+
+    for callback in app.callbacks:
+        if callback.name == target_path:
+            highlight = {
+                'comm': [],
+                'callback': [callback],
+                'sched': []
+            }
+            return highlight
+
+    for sched in app.scheds:
+        if sched.name == target_path:
+            highlight = {
+                'comm': [],
+                'callback': [],
+                'sched': [sched]
+            }
+            return highlight
+
+    for comm in app.comms:
+        dds = comm.child[0]
+        if comm.name == target_path or dds.name == target_path:
+            highlight = {
+                'comm': [comm],
+                'callback': [],
+                'sched': []
+            }
+            return highlight
+
+    highlight = {
+        'comm': [],
+        'callback': [],
+        'sched': []
+    }
+    return highlight
+
+def draw_node_graph(app, png_path, target_path):
+    import os
     assert isinstance(app, Application)
     assert isinstance(png_path, str)
 
-    # app = ApplicationFactory.create_from_json(architecture_path)
-    G = pgv.AGraph(directed=True, style='rounded', rankdir="LR", compound=True)
+    G = pgv.AGraph(directed=True, style='rounded', rankdir="LR", compound=True, label=target_path)
     G.node_attr['shape'] = 'rect'
+
+    highlight = get_highlit_items(app, target_path)
 
     for node in app.nodes:
         if node.start_node:
@@ -35,28 +95,49 @@ def draw_node_graph(app, png_path):
                                style='rounded')
 
         for cb in node.callbacks:
-            N.add_node(cb.symbol, label=lambda_pretty(cb.symbol))
+            arg = {}
+            if cb in highlight['callback'] or cb.path in highlight['callback']:
+                arg['fillcolor'] = 'rosybrown1'
+                arg['style'] = 'filled'
+                arg['color'] = 'red'
+            N.add_node(cb.symbol, label=lambda_pretty(cb.symbol), **arg)
 
     for comm in app.comms:
         arg = {}
         edge_to = comm.cb_sub.name
+        arg['label'] = comm.topic_name
 
         if comm.cb_pub is None:
             edge_from = comm.node_pub.callbacks[0].name
-            arg['color'] = 'red'
+            arg['color'] = 'black'
+            arg['style'] = 'dashed'
             arg['ltail'] = to_cluster_name(comm.node_pub)
         else:
             edge_from = comm.cb_pub.name
             arg['color'] = 'blue'
 
+        if comm in highlight['comm']:
+            arg['color'] = 'red'
+
         G.add_edge(edge_from, edge_to, **arg)
 
     for sched in app.scheds:
+        arg = {
+            'color': 'blue',
+            'rank': 'same',
+            'constraint': False
+        }
+        if sched in highlight['sched']:
+            arg['color'] = 'red'
+
         G.add_edge(sched.callback_in.name,
                    sched.callback_out.name,
-                   color='blue', rank='same', constraint=False)
+                   **arg)
 
-    print(f'{len(app.paths)} paths found.')
+    print(f'{len(app.paths)} end-to-end paths found.')
+    print(f'{len(app.nodes)} nodes, {len(app.nodes.paths)} node paths found.')
+    print(f'{len(app.comms)} communication found.')
+    print(f'{len(app.callbacks)} callbacks found.')
 
     if not app.has_start_node():
         print('Failed to find start node. Please set [/target_path/start_node_name].')
@@ -66,4 +147,5 @@ def draw_node_graph(app, png_path):
     if len(unlinked) > 0:
         print(f'{len(unlinked)} communications have no callback name. Please set [/nodes/publish/topic].')
 
-    G.draw("tmp.png", prog="dot")
+    os.makedirs(os.path.dirname(png_path), exist_ok=True)
+    G.draw(png_path, prog="dot")
