@@ -64,11 +64,6 @@ class Path(SearchNode):
         self._hist = hist
 
     @property
-    def max_ms(self):
-        tmp_raw = np.trim_zeros(self.hist.raw, 'b')
-        return len(tmp_raw)-1
-
-    @property
     def timeseries(self):
         return self._timeseries
 

@@ -8,13 +8,17 @@ class Flame():
         assert(isinstance(path, NodePath))
         collapsed = ''
         for child in path.child:
-            collapsed += '{};{} {}\n'.format(path.name, child.name, child.max_ms)
+            collapsed += '{};{} {}\n'.format(path.name, child.name, child.get_stats()['max'])
         return collapsed
 
     @classmethod
     def _collapse_comm(cls, path) -> str:
         assert(isinstance(path, Comm))
-        return '{} {}\n'.format(path.name, path.max_ms)
+        dds = path.child[0]
+
+        return \
+            '{} {}\n'.format(path.name, path.get_stats()['max']) + \
+            '{};{} {}\n'.format(path.name, dds.name, dds.get_stats()['max'])
 
     @classmethod
     def _collapse_app(cls, path) -> str:
