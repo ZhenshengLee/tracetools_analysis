@@ -69,6 +69,7 @@ def get_highlit_items(app, target_path):
 
 def draw_node_graph(app, png_path, target_path):
     import os
+    from .common import prepare_dir
     assert isinstance(app, Application)
     assert isinstance(png_path, str)
 
@@ -147,5 +148,6 @@ def draw_node_graph(app, png_path, target_path):
     if len(unlinked) > 0:
         print(f'{len(unlinked)} communications have no callback name. Please set [/nodes/publish/topic].')
 
-    os.makedirs(os.path.dirname(png_path), exist_ok=True)
+    prepare_dir(png_path)
+
     G.draw(png_path, prog="dot")

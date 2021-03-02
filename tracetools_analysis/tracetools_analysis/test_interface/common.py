@@ -26,6 +26,14 @@ class Unit():
     def __str__(self):
         return self._name
 
+def prepare_dir(path):
+    import os
+    dir_path = os.path.dirname(path)
+    print(dir_path)
+    if dir_path in ['', '.']:
+        return
+
+    os.makedirs(os.path.dirname(dir_path), exist_ok=True)
 
 def read_yaml(yaml_path):
     import yaml
@@ -37,6 +45,6 @@ def write_yaml(yaml_path, obj):
     import yaml
     import os
 
-    os.makedirs(os.path.dirname(yaml_path), exist_ok=True)
+    prepare_dir(yaml_path)
     with open(yaml_path, 'w') as f:
         yaml.dump(obj, f)

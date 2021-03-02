@@ -108,12 +108,11 @@ class Analyzer():
 
 
 def get_analysis_target():
-    def run(trace_path:str, architecture_path:str):
+    def run(architecture_path:str):
         """get_analysis_target
         list up all analysis target.
         """
         app = ApplicationFactory.create_from_json(architecture_path)
-        app.import_trace(trace_path)
 
         path_names = [_.name for _ in app.get_path_list()]
         for path_name in sorted(path_names):
@@ -179,8 +178,9 @@ def create_architecture():
         create architecture file.
         """
         import os
+        from .test_interface.common import prepare_dir
 
-        os.makedirs(os.path.dirname(architecture_path), exist_ok=True)
+        prepare_dir(architecture_path)
 
         app = ApplicationFactory.create_from_trace(trace_path)
         app.export(architecture_path)
@@ -195,8 +195,9 @@ def draw_node_graph():
         """
         import os
         from .test_interface import node_graph
+        from .test_interface.common import prepare_dir
 
-        os.makedirs(os.path.dirname(architecture_path), exist_ok=True)
+        prepare_dir(architecture_path)
 
         app = ApplicationFactory.create_from_json(architecture_path)
         node_graph.draw_node_graph(app, png_path, target_path)
