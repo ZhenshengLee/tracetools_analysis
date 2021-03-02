@@ -8,7 +8,7 @@ from .comm import CommCollection, Comm
 from .callback import SubscribeCallback, TimerCallback, Callback
 from .publish import Publish
 from .search_tree import SearchTree, Path, PathCollection
-from .data_type import Timeseries, Histogram
+from .data_type import Timeseries
 
 import pandas as pd
 import numpy as np
@@ -25,10 +25,6 @@ class End2End(Path):
 
     def _get_node_paths(self):
         return list(filter(lambda x: isinstance(x, NodePath), self.child))
-
-    @property
-    def hist(self):
-        return Histogram.sum([_.hist for _ in self.child])
 
     @property
     def child_names(self):
@@ -105,8 +101,6 @@ class Application():
 
         events = load_file(trace_dir)
         self.events = events
-        for event in events:
-            event['_timestamp'] = Util.ns_to_ms(event['_timestamp'])
 
         handler = Ros2Handler.process(events)
 
@@ -515,9 +509,6 @@ class ApplicationFactory():
     @classmethod
     def create_from_trace(cls, path):
         events = load_file(path)
-
-        for event in events:
-            event['_timestamp'] = Util.ns_to_ms(event['_timestamp'])
 
         handler = Ros2Handler.process(events)
         data_util = Ros2DataModelUtil(handler.data)

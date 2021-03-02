@@ -87,10 +87,6 @@ class Callback():
     def hist(self):
         return self.path.hist
 
-    @hist.setter
-    def timeseries(self, timeseries):
-        self.path.hist = timeseries
-
     @property
     def timeseries(self):
         return self.path.timeseries

@@ -1,7 +1,6 @@
 import collections.abc
 
 from .search_tree import SearchTree, Path
-from .data_type import Histogram
 from .util import Util, Counter
 from .callback import SubscribeCallback, CallbackFactory, CallbackCollection, CallbackPath
 from .sched import Sched, SchedCollection
@@ -187,10 +186,6 @@ class NodePath(Path):
         self.__node = node
         self.counter.add(self, node.name)
         self._index = self.counter.get_count(self, node.name)
-
-    @property
-    def hist(self):
-        return Histogram.sum([_.hist for _ in self.child])
 
     @property
     def node(self):

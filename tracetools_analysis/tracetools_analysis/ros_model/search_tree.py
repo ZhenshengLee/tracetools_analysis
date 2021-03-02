@@ -1,5 +1,6 @@
 import numpy as np
 import collections.abc
+from .data_type import Histogram
 
 class SearchNode():
     def __init__(self):
@@ -55,13 +56,15 @@ class Path(SearchNode):
     def child(self, child):
         self._child = child
 
-    @property
-    def hist(self):
-        return self._hist
+    def hist(self, binsize_ns=1):
+        if self._timeseries is not None:
+            return self._timeseries.to_hist(binsize_ns)
 
-    @hist.setter
-    def hist(self, hist):
-        self._hist = hist
+        if len(self.child) > 0:
+            return Histogram.sum([_.hist(binsize_ns) for _ in self.child])
+
+
+        return self._hist
 
     @property
     def timeseries(self):
@@ -70,7 +73,6 @@ class Path(SearchNode):
     @timeseries.setter
     def timeseries(self, timeseries):
         self._timeseries = timeseries
-        self._hist = timeseries.to_hist()
 
     def has_hist(self, child):
         for path in child:
