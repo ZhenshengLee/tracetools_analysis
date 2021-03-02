@@ -37,6 +37,16 @@ class End2End(Path):
     def get_stats(self):
         return Util.get_stats_from_hist(self.hist)
 
+class TimeConverter():
+    def __init__(self, events):
+        import numpy as np
+        x = [event['_timestamp'] for event in events]
+        y = [event['stamp'] for event in events]
+        a, b = np.polyfit(x, y, 1)
+        self._f = lambda x: a*x + b
+
+    def to_clock(self, time: np.ndarray):
+        return [self._f(t) for t in time]
 
 class Application():
     def __init__(self):
@@ -44,9 +54,11 @@ class Application():
         self.data_util = None
         self.__paths = None
         self.events = None
+        self.clocks = None
         self.comms = CommCollection()
         self.comm_instances = None
         self._filter = DataFrameFilter()
+        self._time_converter = None
 
     @property
     def paths(self):
@@ -96,10 +108,16 @@ class Application():
         }
         return info
 
-    def import_trace(self, trace_dir, start_transition_ms=0, end_transition_ms=0):
+    def import_trace(self, trace_dir, start_transition_ms=0, end_transition_ms=0, clock=None):
         assert(self.nodes != [])
 
         events = load_file(trace_dir)
+
+        if clock is not None:
+            clocks = load_file(clock)
+            self.clocks = clocks
+            self._time_converter = TimeConverter(clocks)
+
         self.events = events
 
         handler = Ros2Handler.process(events)
@@ -174,7 +192,10 @@ class Application():
                 callback_duration_records = callback_instances[
                     callback_instances['callback_object'] == callback.object]
                 callback_durations = callback_duration_records['duration'].values
-                callback.timeseries = Timeseries(callback_durations)
+                time = callback_duration_records['timestamp'].values
+                clock = None if self._time_converter is None \
+                    else self._time_converter.to_clock(time)
+                callback.timeseries = Timeseries(callback_durations, time, clock)
 
     def _import_comm_instances(self, instances):
         for comm in self.comms:
@@ -183,11 +204,12 @@ class Application():
                 (instances['publish_object'] == objects['publish']) &
                 (instances['subscribe_object'] == objects['subscribe'])]
 
-            comm.timeseries = Timeseries(duration_records['duration'].values)
-            comm.hist = comm.timeseries.to_hist()
+            time = duration_records['timestamp'].values
+            clock = None if self._time_converter is None \
+                else self._time_converter.to_clock(time)
+            comm.timeseries = Timeseries(duration_records['duration'].values, time, clock)
             dds = comm.child[0]
-            dds.timeseries = Timeseries(duration_records['communication_latency'].values)
-            dds.hist = dds.timeseries.to_hist()
+            dds.timeseries = Timeseries(duration_records['communication_latency'].values, time, clock)
 
     def get_publish_instances(self, events):
         publish_instances = pd.DataFrame(columns=[
@@ -324,7 +346,7 @@ class Application():
             if row_.instance_type == 'end' and row.instance_type == 'start':
                 duration = row.timestamp - row_.timestamp
                 data = {
-                    'timestamp': row.timestamp,
+                    'timestamp': row_.timestamp,
                     'callback_in_object': sched.callback_in.object,
                     'callback_out_object': sched.callback_out.object,
                     'duration': duration
@@ -384,7 +406,10 @@ class Application():
                  == sched.callback_out.object)
             ]
             duration_raw = duration_records['duration'].values
-            sched.timeseries = Timeseries(duration_raw)
+            time = duration_records['timestamp'].values
+            clock = None if self._time_converter is None \
+                else self._time_converter.to_clock(time)
+            sched.timeseries = Timeseries(duration_raw, time, clock)
 
     def _insert_runtime_data(self, data_util, nodes):
         self._insert_callback_object(data_util)
