@@ -41,6 +41,47 @@ class Timeseries:
         self._time = time
         self._clock = clock
 
+    @classmethod
+    def sum(cls, timeseries):
+        import pandas as pd
+
+        child_dfs = []
+
+        for child in timeseries:
+            child_dfs.append(pd.DataFrame(data={
+                'timestamp': child.time,
+                'latency': child.raw,
+                'clock': child.clock,
+                'object': child
+            }))
+
+        path_df = pd.concat(child_dfs).sort_values('timestamp')
+
+        first_record_stamp = np.max([df.timestamp[0] for df in child_dfs])
+        first_records_df = [df[df['timestamp'] <= first_record_stamp]
+                            for df in child_dfs]
+        first_record_df = [df.iloc[-1, :] for df in first_records_df]
+
+        target_path_df = path_df[path_df['timestamp'] >= first_record_stamp]
+        target_path_df.reset_index(drop=True, inplace=True)
+
+        timestamp = np.zeros(len(target_path_df))
+        clock = np.zeros(len(target_path_df))
+        latency = np.zeros(len(target_path_df))
+
+        child_latencies = np.array([_.latency for _ in first_record_df])
+
+        for i, row in target_path_df.iterrows():
+            for j, child in enumerate(timeseries):
+                if row['object'] == child:
+                    child_latencies[j] = row['latency']
+
+            timestamp[i] = row['timestamp']
+            clock[i] = row['clock']
+            latency[i] = np.sum(child_latencies)
+
+        return Timeseries(latency, timestamp, clock)
+
     @property
     def raw(self) -> np.ndarray:
         return self.__raw
