@@ -46,7 +46,7 @@ class TimeConverter():
         self._f = lambda x: a*x + b
 
     def to_clock(self, time: np.ndarray):
-        return [self._f(t) for t in time]
+        return np.array([self._f(t) for t in time])
 
 class Application():
     def __init__(self):
