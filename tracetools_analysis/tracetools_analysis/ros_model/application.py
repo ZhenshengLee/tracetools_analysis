@@ -125,8 +125,8 @@ class Application():
         self.data_util = Ros2DataModelUtil(handler.data)
         self._insert_runtime_data(self.data_util, self.nodes)
 
-        self._filter.min_limit = events[0]['_timestamp'] + start_transition_ms
-        self._filter.max_limit = events[-1]['_timestamp'] - end_transition_ms
+        self._filter.min_limit = events[0]['_timestamp']+start_transition_ms*1.0e6
+        self._filter.max_limit = events[-1]['_timestamp']-end_transition_ms*1.0e6
 
         callback_durations = handler.data.callback_instances
         if len(callback_durations) > 0:
@@ -295,23 +295,26 @@ class Application():
 
         for i, publish_record in publish_df_.iterrows():
             subscribe_record = subscribe_df_[subscribe_df_['stamp'] == publish_record['stamp']]
-            duration_ms = None
-            communication_latency_ms = None
+
+            duration_ns = None
+            communication_latency_ns = None
+
             if len(subscribe_record) == 1:
-                duration_ms = subscribe_record['timestamp'].values[0] - publish_record['timestamp']
-                communication_latency_ms = (subscribe_record['received_stamp'].values[0] - subscribe_record['source_stamp'].values[0]) * 1.0e-6
+                duration_ns = subscribe_record['timestamp'].values[0] - publish_record['timestamp']
+                communication_latency_ns = subscribe_record['received_stamp'].values[0] - subscribe_record['source_stamp'].values[0]
 
             data = {
                 'timestamp': publish_record['timestamp'],
                 'publish_object': publish_object,
                 'subscribe_object': subscribe_object,
-                'duration': duration_ms,
-                'communication_latency': communication_latency_ms
+                'duration': duration_ns,
+                'communication_latency': communication_latency_ns
             }
             comm_instances = comm_instances.append(data, ignore_index=True)
 
         # remove last records if values are NaN
-        valid_messages_df = comm_instances[~(np.isnan(comm_instances['duration']))]
+
+        valid_messages_df = comm_instances[comm_instances['duration'] != None]
         last_valid_idx = valid_messages_df.index[-1]
         comm_instances = comm_instances.iloc[:last_valid_idx+1]
 

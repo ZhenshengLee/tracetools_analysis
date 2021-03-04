@@ -31,14 +31,15 @@ class Util():
     @classmethod
     def get_stats_from_hist(cls, hist):
         import numpy as np
-        hist_raw = hist.raw
-        measured_latency = np.where(hist_raw > 0)[0]
-        latency = np.arange(len(hist_raw)) + 1
+        hist = hist(binsize_ns=1000000)
+        x, y = hist.get_xy()
+
         stats = {
-            'max': measured_latency[-1],
-            'min': measured_latency[0],
-            'median': np.argmax(hist_raw),
-            'mean': np.sum(latency * hist_raw)
+            'unit': 'ms',
+            'max': max(x),
+            'min': min(x),
+            'median': x[np.argmax(y)],
+            'mean': np.sum(x*y)
         }
         return stats
 

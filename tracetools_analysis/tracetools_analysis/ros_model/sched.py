@@ -83,10 +83,11 @@ class Sched(Path):
 
     def get_stats(self):
         data = {
-            'min': np.min(self.timeseries.raw_nan_removed),
-            'max': np.max(self.timeseries.raw_nan_removed),
-            'median': np.median(self.timeseries.raw_nan_removed),
-            'mean': np.mean(self.timeseries.raw_nan_removed),
+            'unit': 'ms',
+            'min': np.min(self.timeseries.raw_nan_removed)*1.0e-6,
+            'max': np.max(self.timeseries.raw_nan_removed)*1.0e-6,
+            'median': np.median(self.timeseries.raw_nan_removed)*1.0e-6,
+            'mean': np.mean(self.timeseries.raw_nan_removed)*1.0e-6,
             'send': len(self.timeseries.raw),
             'lost': len(self.timeseries.raw)-len(self.timeseries.raw_nan_removed)
         }

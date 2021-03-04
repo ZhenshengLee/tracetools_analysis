@@ -1,4 +1,5 @@
 import numpy as np
+from .util import Util
 
 class Histogram:
     pass
@@ -6,9 +7,11 @@ class Histogram:
 class Histogram:
     __normalize = True
 
-    def __init__(self, raw: np.array):
-        raw = [_ for _ in raw if not np.isnan(_)]
-        self.__raw = np.trim_zeros(raw, 'b')
+    def __init__(self, raw: np.array, binsize_ns=1):
+        binsize_ns = int(binsize_ns)
+        self._binsize_ns = binsize_ns
+        raw = np.trim_zeros(raw, 'b')
+        self._latencies, self._hists = self._divide(raw)
 
     @classmethod
     def normalize(cls, use):
@@ -16,24 +19,97 @@ class Histogram:
 
     @classmethod
     def sum(cls, histgrams):
-        hist = Histogram(histgrams[0].raw)
+        hist = Histogram(histgrams[0].raw, binsize_ns=histgrams[0].binsize_ns)
         for histgram in histgrams[1:]:
             hist = hist + histgram
         return hist
 
-    def __add__(self, hist_: Histogram):
-        tmp = np.convolve(self.__raw, hist_.raw, mode='full')
-        tmp = np.trim_zeros(tmp, "b")
-        return self.__class__(tmp)
+    def __add__(self, hist: Histogram):
+        import itertools
+        assert self.binsize_ns == hist.binsize_ns, f'{self.binsize_ns}, {hist.binsize_ns}'
+        
+        def add_latencies(latency1, latency2):
+            latency_min = min(latency1) + min(latency2)
+            latency_max = max(latency1) + max(latency2)
+            return np.arange(latency_min, latency_max + self._binsize_ns, self._binsize_ns)
+        
+        hist_pairs = list(itertools.product(self._hists, hist._hists))
+        latency_pairs = list(itertools.product(self._latencies, hist._latencies))
 
+        hists = [0] * len(hist_pairs)
+        latencies = [0] * len(latency_pairs)
+        for i, (hist_pair, latency_pair) in enumerate(zip(hist_pairs, latency_pairs)):
+            hists[i] = np.convolve(*hist_pair, mode='full')
+            latencies[i] = add_latencies(*latency_pair)
+            
+        return self.__class__(self._to_raw(latencies, hists), binsize_ns=self._binsize_ns)
+    
+    @property
+    def binsize_ns(self):
+        return self._binsize_ns
+    
     @property
     def raw(self) -> np.ndarray:
-        tmp_raw = np.append(self.__raw, 0)
+        return self._to_raw(self._latencies, self._hists)
+    
+    @property
+    def latency(self):
+        return self._get_latency_ms()
+    
+    def get_xy(self):
+        return self._get_latency_ms(), self._get_hist()
+    
+    def _divide(self, raw):
+        idx = np.where(raw > 0)[0]
+        idx_diff = idx[1:] - idx[:-1]
+
+        idx_split = np.where(idx_diff > 1)[0]+1
+
+        indicies = np.array(np.split(idx, idx_split))
+
+        latencies = self._to_latency(indicies)
+        hist = np.array([raw[_] for _ in indicies])
+
+        return latencies, hist
+    
+    def _to_latency(self, index):
+        return (index) * self._binsize_ns
+    
+    def _to_index(self, latency):
+        return int(latency / self._binsize_ns)
+    
+    def _to_raw(self, latencies, hists):
+        max_latency = np.max(Util.flatten(latencies))
+        array_size = self._to_index(max_latency)+2
+        raw = np.zeros(array_size)
+        
+        for hist, latency in zip(hists, latencies):
+            idx_min = self._to_index(np.min(latency))
+            idx_max = self._to_index(np.max(latency))+1
+            raw[idx_min:idx_max]+=hist
+            
         if Histogram.__normalize:
-            sum = np.sum(tmp_raw)
+            sum = np.sum(raw)
             assert(sum != 0)
-            return tmp_raw / sum
-        return self.__raw
+            return raw / sum
+        
+        return raw
+    
+    def _get_latency_ms(self):
+        array_size = self._to_index(np.max(Util.flatten(self._latencies))) + 2
+        indicies = np.arange(array_size)
+        latencies_ns = np.array([self._to_latency(_) for _ in indicies])
+        
+        offset = max(0, self._to_index(np.min(Util.flatten(self._latencies)))-1)
+        return latencies_ns[offset:] * 1.0e-6
+    
+    def _get_hist(self):
+        raw = self._to_raw(self._latencies, self._hists)
+        
+        min_idx = np.min(np.where(raw>0)[0])
+        min_idx = min_idx-1 if min_idx>0 else min_idx
+        
+        return raw[min_idx:]
 
 class Timeseries:
     def __init__(self, raw: np.array, time: np.array, clock=None):
@@ -98,10 +174,13 @@ class Timeseries:
     def clock(self):
         return self._clock
 
+    def get_xy(self):
+        return self.time, self.raw
+
     def to_hist(self, binsize_ns):
         raw = self.raw_nan_removed / binsize_ns
         bins = int(np.ceil(np.max(raw))) + 1
-        assert bins < 100000, 'too large bin size.'
+        assert bins < 10000000, 'too large bin size.'
         range_max = int(np.ceil(np.max(raw))) + 1
         hist_raw, _ = np.histogram(raw, bins=bins, range=(0, range_max))
-        return Histogram(hist_raw)
+        return Histogram(hist_raw, binsize_ns=binsize_ns)
