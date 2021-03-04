@@ -174,7 +174,10 @@ class Timeseries:
     def clock(self):
         return self._clock
 
-    def get_xy(self):
+    def get_xy(self, use_simtime=False):
+        if use_simtime:
+            assert np.isnan(self.clock).any() == False, 'Failed to get simtime.'
+            return self.clock, self.raw
         return self.time, self.raw
 
     def to_hist(self, binsize_ns):
