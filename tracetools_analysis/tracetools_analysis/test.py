@@ -124,15 +124,23 @@ def get_analysis_target():
     fire.Fire(run)
 
 def export_graph(app, export_dir):
+    from tracetools_analysis.ros_model.comm import Comm
+
     for path in app.get_path_list():
         if path.hist is not None:
             graph_path = get_graph_path(export_dir, path.name, GraphType.HIST)
-            histogram = graph.Histogram(path.hist(binsize_ns=1e6).raw)
+            if isinstance(path, Comm):
+                histogram = graph.Histogram(path, path.child[0])
+            else:
+                histogram = graph.Histogram(path)
             histogram.export(graph_path)
 
         if path.timeseries is not None:
             graph_path = get_graph_path(export_dir, path.name, GraphType.TIMESERIES)
-            timeseries = graph.Timeseries(path.timeseries.raw)
+            if isinstance(path, Comm):
+                timeseries = graph.Timeseries(path, path.child[0])
+            else:
+                timeseries = graph.Timeseries(path)
             timeseries.export(graph_path)
 
 def trace_analysis():

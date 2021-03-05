@@ -150,8 +150,6 @@ class Timeseries:
         target_path_df = path_df[path_df['timestamp'] >= first_record_stamp]
         target_path_df.reset_index(drop=True, inplace=True)
 
-        timestamp = np.zeros(len(target_path_df))
-        clock = np.zeros(len(target_path_df))
         latency = np.zeros(len(target_path_df))
 
         child_latencies = np.array([_.latency for _ in first_record_df])
@@ -160,10 +158,11 @@ class Timeseries:
             for j, child in enumerate(timeseries):
                 if row['object'] == child:
                     child_latencies[j] = row['latency']
-
-            timestamp[i] = row['timestamp']
-            clock[i] = row['clock']
             latency[i] = np.sum(child_latencies)
+
+        timestamp = target_path_df['timestamp'].values
+        has_clock = (target_path_df['clock'].values != None).all()
+        clock = target_path_df['timestamp'].values if has_clock else None
 
         return Timeseries(latency, timestamp, clock)
 
@@ -185,7 +184,7 @@ class Timeseries:
 
     def get_xy(self, use_simtime=False):
         if use_simtime:
-            assert np.isnan(self.clock).any() == False, 'Failed to get simtime.'
+            assert self.clock is not None, 'Failed to get simtime.'
             return self.clock, self.raw
         return self.time, self.raw
 
