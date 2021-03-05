@@ -22,6 +22,7 @@ class End2End(Path):
         super().__init__(child)
         self.counter.add(self, self.base_name)
         self._index = self.counter.get_count(self, self.base_name)
+        self._unique_name = '{}_{}'.format(self.base_name, self._index)
 
     def _get_node_paths(self):
         return list(filter(lambda x: isinstance(x, NodePath), self.child))
@@ -29,10 +30,6 @@ class End2End(Path):
     @property
     def child_names(self):
         return '--'.join([_.name for _ in self._get_node_paths()])
-
-    @property
-    def name(self):
-        return '{}_{}'.format(self.base_name, self._index)
 
     def get_stats(self):
         return Util.get_stats_from_hist(self.hist)
@@ -99,12 +96,20 @@ class Application():
         if end_node is not None:
             end_node_name = f'{end_node.ns}{end_node.name}'
 
+        path_name_alias = {}
+        for path in self.get_path_list():
+            if path.unique_name != path.name:
+                path_name_alias[path.unique_name] = path.name
+        if len(path_name_alias) == 0:
+            path_name_alias[''] = ''
+
         info = {
             'target_path': {
                 'start_node_name': start_node_name,
                 'end_node_name': end_node_name,
             },
-            'nodes': [node.get_info() for node in self.nodes]
+            'nodes': [node.get_info() for node in self.nodes],
+            'path_name_alias': path_name_alias
         }
         return info
 
@@ -152,29 +157,28 @@ class Application():
         with open(path, mode='w') as f:
             f.write(json.dumps(self.get_info(), indent=2))
 
-    def find_path(self, name):
-        def local_find_path(paths, name):
-            for path in paths:
-                if path.name == name:
-                    return path
-                find = local_find_path(path.child, name)
-                if find is not None:
-                    return find
-
-        path = local_find_path(self.paths, name)
-        assert path is not None, 'Failed to find target path :{}'.format(name)
-        return path
-
     def get_path_list(self):
         targets = []
-        def local_find_path(paths):
+        def get_child_path(paths):
             for path in paths:
                 if path not in targets:
                     targets.append(path)
-                local_find_path(path.child)
+                get_child_path(path.child)
 
-        local_find_path(self.paths)
+        get_child_path(self.paths)
         return targets
+
+    def find_path(self, name):
+        paths = self.get_path_list()
+        target_paths = []
+        for path in paths:
+            if path.name == name or path.unique_name == name:
+                target_paths.append(path)
+
+        assert len(target_paths) > 0, f'Failed to find target path :{name}'
+        assert len(target_paths) <= 1, f'Duplicated path names : {name}'
+
+        return target_paths[0]
 
     def _search_paths(self, nodes):
         # search all path
@@ -203,6 +207,10 @@ class Application():
             duration_records = instances[
                 (instances['publish_object'] == objects['publish']) &
                 (instances['subscribe_object'] == objects['subscribe'])]
+
+            if len(duration_records) == 0:
+                print(f'Failed to calculate {comm.topic_name} latency.'
+                      f'Please confirm {comm.topic_name} contains header msg.')
 
             time = duration_records['timestamp'].values
             clock = None if self._time_converter is None \
@@ -290,8 +298,8 @@ class Application():
         subscribe_df_ = subscribe_df[subscribe_df['callback_object'] == subscribe_object]
         subscribe_df_.reset_index(inplace=True, drop=True)
 
-        assert len(publish_df_)>0, 'failed to get publish records'
-        assert len(subscribe_df_)>0,'failed to get subscribe records'
+        if len(publish_df_) == 0 or len(subscribe_df_) == 0:
+            return comm_instances
 
         for i, publish_record in publish_df_.iterrows():
             subscribe_record = subscribe_df_[subscribe_df_['stamp'] == publish_record['stamp']]
@@ -478,7 +486,20 @@ class ApplicationFactory():
                 comm.subsequent.append(node_path)
 
         app.update_paths()
+
+        from collections import Counter
+        alias_count = Counter(app_info['path_name_alias'].values())
+        for alias_name, count in alias_count.items():
+            assert count < 2, f'architecture file has duplicate alias name: {alias_name}'
+
+        for path_name, alias_name in app_info['path_name_alias'].items():
+            if path_name == '':
+                continue
+            path = app.find_path(path_name)
+            path.alias_name = alias_name
+
         return app
+
 
     @classmethod
     def _get_duplicate_num_max(cls, array):

@@ -97,7 +97,11 @@ class Callback():
 
     @property
     def name(self):
-        return self.symbol
+        return self.path.name
+
+    @property
+    def unique_name(self):
+        return self.path.unique_name
 
     def get_info(self):
         pass
@@ -118,6 +122,7 @@ class CallbackPath(Path):
         super().__init__()
         self.child = []
         self._callback = callback
+        self._unique_name = self._callback.symbol
 
     def is_target(self):
         return self._callback.has_publish()
@@ -129,10 +134,6 @@ class CallbackPath(Path):
     @property
     def publishes(self):
         return self._callback.publishes
-
-    @property
-    def name(self):
-        return self._callback.name
 
     @property
     def symbol(self):

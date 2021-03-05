@@ -23,6 +23,7 @@ class DDS(Path):
 
         self.counter.add(self, self.topic_name)
         self._index = self.counter.get_count(self, self.topic_name)
+        self._unique_name = '{}_dds_{}'.format(self.topic_name, self._index)
 
     def get_stats(self):
         data = {
@@ -61,6 +62,7 @@ class Comm(Path):
         self.counter.add(self, self.topic_name)
         self._index = self.counter.get_count(self, self.topic_name)
         self.publish = publish
+        self._unique_name = '{}_{}'.format(self.topic_name, self._index)
 
     def get_objects(self):
         return {'publish': self.publish.object, 'subscribe': self.cb_sub.object}

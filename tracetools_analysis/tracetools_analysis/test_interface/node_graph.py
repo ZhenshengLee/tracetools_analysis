@@ -17,9 +17,9 @@ def lambda_pretty(func_name):
 def to_cluster_name(node):
     return f'cluster_{node.name}'
 
-def get_highlit_items(app, target_path):
+def get_highlight_items(app, target_path_name):
     for path in app.paths:
-        if path.name == target_path:
+        if target_path_name in [path.name, path.unique_name]:
             comms = path.child[1::2]
             nodes = path.child[0::2]
             callback_paths = Util.flatten([_.child[0::2] for _ in nodes])
@@ -31,7 +31,7 @@ def get_highlit_items(app, target_path):
             return highlight
 
     for path in app.nodes.paths:
-        if path.name == target_path:
+        if target_path_name in [path.name, path.unique_name]:
             highlight = {
                 'comm': [],
                 'callback': path.child[0::2],
@@ -40,7 +40,7 @@ def get_highlit_items(app, target_path):
             return highlight
 
     for callback in app.callbacks:
-        if callback.name == target_path:
+        if target_path_name in [callback.name, callback.unique_name]:
             highlight = {
                 'comm': [],
                 'callback': [callback],
@@ -49,7 +49,7 @@ def get_highlit_items(app, target_path):
             return highlight
 
     for sched in app.scheds:
-        if sched.name == target_path:
+        if target_path_name in [sched.name, sched.unique_name]:
             highlight = {
                 'comm': [],
                 'callback': [],
@@ -59,7 +59,8 @@ def get_highlit_items(app, target_path):
 
     for comm in app.comms:
         dds = comm.child[0]
-        if comm.name == target_path or dds.name == target_path:
+        if target_path_name in [comm.name, comm.unique_name] or \
+           target_path_name in [dds.name, dds.unique_name]:
             highlight = {
                 'comm': [comm],
                 'callback': [],
@@ -74,16 +75,19 @@ def get_highlit_items(app, target_path):
     }
     return highlight
 
-def draw_node_graph(app, png_path, target_path):
+def draw_node_graph(app, png_path, target_path_name):
     import os
     from .common import prepare_dir
     assert isinstance(app, Application)
     assert isinstance(png_path, str)
 
-    G = pgv.AGraph(directed=True, style='rounded', rankdir="LR", compound=True, label=target_path)
+    G = pgv.AGraph(directed=True, style='rounded', rankdir='LR', compound=True, label=target_path_name)
     G.node_attr['shape'] = 'rect'
 
-    highlight = get_highlit_items(app, target_path)
+    highlight = get_highlight_items(app, target_path_name)
+    found_highlight_items = len(Util.flatten(highlight.values())) > 0
+    if target_path_name != '' and found_highlight_items==False:
+        print(f'Failed to find highlight path! : {target_path_name}')
 
     for node in app.nodes:
         if node.start_node:
@@ -108,20 +112,20 @@ def draw_node_graph(app, png_path, target_path):
                 arg['fillcolor'] = 'rosybrown1'
                 arg['style'] = 'filled'
                 arg['color'] = 'red'
-            N.add_node(cb.symbol, label=lambda_pretty(cb.symbol), **arg)
+            N.add_node(cb.unique_name, label=lambda_pretty(cb.symbol), **arg)
 
     for comm in app.comms:
         arg = {}
-        edge_to = comm.cb_sub.name
+        edge_to = comm.cb_sub.unique_name
         arg['label'] = comm.topic_name
 
         if comm.cb_pub is None:
-            edge_from = comm.node_pub.callbacks[0].name
+            edge_from = comm.node_pub.callbacks[0].unique_name
             arg['color'] = 'black'
             arg['style'] = 'dashed'
             arg['ltail'] = to_cluster_name(comm.node_pub)
         else:
-            edge_from = comm.cb_pub.name
+            edge_from = comm.cb_pub.unique_name
             arg['color'] = 'blue'
 
         if comm in highlight['comm']:
@@ -138,8 +142,8 @@ def draw_node_graph(app, png_path, target_path):
         if sched in highlight['sched']:
             arg['color'] = 'red'
 
-        G.add_edge(sched.callback_in.name,
-                   sched.callback_out.name,
+        G.add_edge(sched.callback_in.unique_name,
+                   sched.callback_out.unique_name,
                    **arg)
 
     print(f'{len(app.paths)} end-to-end paths found.')

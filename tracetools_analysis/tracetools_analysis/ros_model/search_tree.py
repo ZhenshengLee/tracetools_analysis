@@ -43,6 +43,8 @@ class Path(SearchNode):
         self._hist = None
         self._timeseries = None
         self.child = child
+        self._alias_name = None
+        self._unique_name = None
 
     @property
     def child(self):
@@ -50,7 +52,21 @@ class Path(SearchNode):
 
     @property
     def name(self):
-        return '-'
+        if self._alias_name is None:
+            return self._unique_name
+        return self._alias_name
+
+    @property
+    def alias_name(self):
+        return self._alias_name
+
+    @alias_name.setter
+    def alias_name(self, alias_name):
+        self._alias_name = alias_name
+
+    @property
+    def unique_name(self):
+        return self._unique_name
 
     @child.setter
     def child(self, child):
@@ -87,6 +103,7 @@ class Path(SearchNode):
 
     def get_stats(self):
         return
+
 
 class PathCollection(collections.abc.Iterable):
     def __init__(self):

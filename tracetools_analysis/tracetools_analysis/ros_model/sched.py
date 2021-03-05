@@ -75,11 +75,7 @@ class Sched(Path):
         super().__init__()
         self.callback_in = callback_in
         self.callback_out = callback_out
-
-
-    @property
-    def name(self):
-        return '{}--{}'.format(self.callback_in.name, self.callback_out.name)
+        self._unique_name = '{}--{}'.format(self.callback_in.name, self.callback_out.name)
 
     def get_stats(self):
         data = {

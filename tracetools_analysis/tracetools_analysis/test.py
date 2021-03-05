@@ -4,7 +4,7 @@ from enum import Enum
 
 from tracetools_analysis.test_interface.common import Result, read_yaml, write_yaml, Unit
 from tracetools_analysis.test_interface.test_case import TestCaseFactory, TestTarget
-from tracetools_analysis.test_interface.graph import Histogram, Timeseries
+from tracetools_analysis.test_interface import graph
 
 from tracetools_analysis.ros_model import ApplicationFactory
 
@@ -114,9 +114,12 @@ def get_analysis_target():
         """
         app = ApplicationFactory.create_from_json(architecture_path)
 
-        path_names = [_.name for _ in app.get_path_list()]
-        for path_name in sorted(path_names):
-            print(path_name)
+        paths = app.get_path_list()
+        for path in sorted(paths, key=lambda x: x.unique_name):
+            if path.name == path.unique_name:
+                print(path.name)
+            else:
+                print(f'{path.unique_name} (alias: "{path.name}")')
 
     fire.Fire(run)
 
@@ -124,12 +127,12 @@ def export_graph(app, export_dir):
     for path in app.get_path_list():
         if path.hist is not None:
             graph_path = get_graph_path(export_dir, path.name, GraphType.HIST)
-            histogram = Histogram(path.hist.raw)
+            histogram = graph.Histogram(path.hist(binsize_ns=1e6).raw)
             histogram.export(graph_path)
 
         if path.timeseries is not None:
             graph_path = get_graph_path(export_dir, path.name, GraphType.TIMESERIES)
-            timeseries = Timeseries(path.timeseries.raw)
+            timeseries = graph.Timeseries(path.timeseries.raw)
             timeseries.export(graph_path)
 
 def trace_analysis():
@@ -189,7 +192,7 @@ def create_architecture():
 
 
 def draw_node_graph():
-    def run(architecture_path: str, png_path: str, target_path=''):
+    def run(architecture_path: str, png_path: str, target_path_name=''):
         """ draw_node_graph
         create architecture node graph.
         """
@@ -200,6 +203,6 @@ def draw_node_graph():
         prepare_dir(architecture_path)
 
         app = ApplicationFactory.create_from_json(architecture_path)
-        node_graph.draw_node_graph(app, png_path, target_path)
+        node_graph.draw_node_graph(app, png_path, target_path_name)
 
     fire.Fire(run)

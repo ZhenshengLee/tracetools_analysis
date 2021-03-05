@@ -186,6 +186,7 @@ class NodePath(Path):
         self.__node = node
         self.counter.add(self, node.name)
         self._index = self.counter.get_count(self, node.name)
+        self._unique_name = '{}_{}'.format(self.__node.name, self._index)
 
     @property
     def node(self):
@@ -212,10 +213,6 @@ class NodePath(Path):
     @property
     def child_names(self):
         return '--'.join([_.name for _ in self._get_callback_latencies()])
-
-    @property
-    def name(self):
-        return '{}_{}'.format(self.__node.name, self._index)
 
     @property
     def publish_topics(self):
