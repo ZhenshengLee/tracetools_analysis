@@ -28,18 +28,25 @@ class DDS(Path):
     def get_stats(self):
         data = {
             'unit': 'ms',
-            'min': np.min(self.timeseries.raw_nan_removed) * 1.0e-6,
-            'max': np.max(self.timeseries.raw_nan_removed) * 1.0e-6,
-            'median': np.median(self.timeseries.raw_nan_removed) * 1.0e-6,
-            'mean': np.mean(self.timeseries.raw_nan_removed) * 1.0e-6,
-            'send': len(self.timeseries.raw),
-            'lost': len(self.timeseries.raw)-len(self.timeseries.raw_nan_removed)
+            'min': None,
+            'max': None,
+            'median': None,
+            'mean': None,
+            'send': None,
+            'lost': None
         }
-        return data
 
-    @property
-    def name(self):
-        return '{}_dds_{}'.format(self.topic_name, self._index)
+        if len(self.timeseries.raw_nan_removed) == 0:
+            return data
+
+        data['min'] = np.min(self.timeseries.raw_nan_removed) * 1.0e-6
+        data['max'] = np.max(self.timeseries.raw_nan_removed) * 1.0e-6
+        data['median'] = np.median(self.timeseries.raw_nan_removed) * 1.0e-6
+        data['mean'] = np.mean(self.timeseries.raw_nan_removed) * 1.0e-6
+        data['send'] = len(self.timeseries.raw)
+        data['lost'] = len(self.timeseries.raw)-len(self.timeseries.raw_nan_removed)
+
+        return data
 
 
 class Comm(Path):
@@ -70,18 +77,25 @@ class Comm(Path):
     def get_stats(self):
         data = {
             'unit': 'ms',
-            'min': np.min(self.timeseries.raw_nan_removed) * 1.0e-6,
-            'max': np.max(self.timeseries.raw_nan_removed) * 1.0e-6,
-            'median': np.median(self.timeseries.raw_nan_removed) * 1.0e-6,
-            'mean': np.mean(self.timeseries.raw_nan_removed) * 1.0e-6,
-            'send': len(self.timeseries.raw),
-            'lost': len(self.timeseries.raw)-len(self.timeseries.raw_nan_removed)
+            'min': None,
+            'max': None,
+            'median': None,
+            'mean': None,
+            'send': None,
+            'lost': None
         }
-        return data
 
-    @property
-    def name(self):
-        return '{}_{}'.format(self.topic_name, self._index)
+        if len(self.timeseries.raw_nan_removed) == 0:
+            return data
+
+        data['min'] = np.min(self.timeseries.raw_nan_removed) * 1.0e-6
+        data['max'] = np.max(self.timeseries.raw_nan_removed) * 1.0e-6
+        data['median'] = np.median(self.timeseries.raw_nan_removed) * 1.0e-6
+        data['mean'] = np.mean(self.timeseries.raw_nan_removed) * 1.0e-6
+        data['send'] = len(self.timeseries.raw)
+        data['lost'] = len(self.timeseries.raw)-len(self.timeseries.raw_nan_removed)
+
+        return data
 
 
 class CommCollectionIterator(collections.abc.Iterator):
