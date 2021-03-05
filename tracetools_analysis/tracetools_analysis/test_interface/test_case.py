@@ -71,31 +71,22 @@ class TestCase():
 
 class PeakTest(TestCase):
     def get_stat(self) -> float:
-        p = self.target.path.hist.raw
-        latency_ms = np.arange(len(p))
-
-        peak = np.max(latency_ms)
-        return peak
+        return self.target.path.get_stats()['max']
     
     def __str__(self):
         return 'peak'
 
 class MeanTest(TestCase):
     def get_stat(self) -> float:
-        p = self.target.path.hist.raw
-        latency_ms = np.arange(len(p))
-
-        mean = np.sum(latency_ms * p)
-        return mean
+        return self.target.path.get_stats()['mean']
     
     def __str__(self):
         return 'mean'
 
 class StdTest(TestCase):
     def get_stat(self) -> float:
-        p = self.target.path.hist.raw
-        latency_ms = np.arange(len(p))
-        mean = np.sum(latency_ms * p)
+        latency_ms, p = self.target.path.hist(binsize_ns=1e6).get_xy()
+        mean = self.target.path.get_stats()['mean']
         std_dev = math.sqrt(np.sum((latency_ms - mean)**2 * p))
         return std_dev
     
