@@ -11,6 +11,7 @@ class Histogram:
         binsize_ns = int(binsize_ns)
         self._binsize_ns = binsize_ns
         raw = np.trim_zeros(raw, 'b')
+        raw = np.append(raw, 0)
         self._latencies, self._hists = self._divide(raw)
 
     @classmethod
@@ -39,8 +40,16 @@ class Histogram:
         hists = [0] * len(hist_pairs)
         latencies = [0] * len(latency_pairs)
         for i, (hist_pair, latency_pair) in enumerate(zip(hist_pairs, latency_pairs)):
-            hists[i] = np.convolve(*hist_pair, mode='full')
-            latencies[i] = add_latencies(*latency_pair)
+            hist_left = hist_pair[0]
+            hist_right = hist_pair[1]
+            latency_left = latency_pair[0]
+            latency_right = latency_pair[1]
+
+            hist_right = np.append(hist_right, hist_right[-1])
+            latency_right = np.append(latency_right, latency_right[-1]+self.binsize_ns)
+
+            hists[i] = np.convolve(hist_left, hist_right, mode='full')
+            latencies[i] = add_latencies(latency_left, latency_right)
             
         return self.__class__(self._to_raw(latencies, hists), binsize_ns=self._binsize_ns)
     
@@ -73,7 +82,7 @@ class Histogram:
         return latencies, hist
     
     def _to_latency(self, index):
-        return (index) * self._binsize_ns
+        return index * self._binsize_ns
     
     def _to_index(self, latency):
         return int(latency / self._binsize_ns)
