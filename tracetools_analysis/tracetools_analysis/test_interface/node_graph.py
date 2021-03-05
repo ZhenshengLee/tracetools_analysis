@@ -4,8 +4,15 @@ from ..ros_model.util import Util
 
 def lambda_pretty(func_name):
     import re
-    m = re.search('^(.*?::).*(?<=\{)(.*)(?=\})', func_name)
-    return  m.group(2)
+    m = re.search('^.*(?<=\{)(.*)(?=\})', func_name)
+    if m is not None:
+        return  m.group(1)
+
+    m = re.search('.*(?<=\()(.*)(?=\))', func_name)
+    if m is not None:
+        return  m.group(1)
+
+    return  func_name
 
 def to_cluster_name(node):
     return f'cluster_{node.name}'
