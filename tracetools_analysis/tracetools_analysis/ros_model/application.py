@@ -49,7 +49,7 @@ class Application():
     def __init__(self):
         self.nodes = NodeCollection()
         self.data_util = None
-        self.__paths = None
+        self.__paths = []
         self.events = None
         self.clocks = None
         self.comms = CommCollection()
