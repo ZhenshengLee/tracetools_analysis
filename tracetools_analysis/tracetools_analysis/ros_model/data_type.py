@@ -31,7 +31,7 @@ class Histogram:
         
         def add_latencies(latency1, latency2):
             latency_min = min(latency1) + min(latency2)
-            latency_max = max(latency1) + max(latency2)
+            latency_max = max(latency1) + max(latency2)+1
             return np.arange(latency_min, latency_max + self._binsize_ns, self._binsize_ns)
         
         hist_pairs = list(itertools.product(self._hists, hist._hists))
@@ -40,16 +40,11 @@ class Histogram:
         hists = [0] * len(hist_pairs)
         latencies = [0] * len(latency_pairs)
         for i, (hist_pair, latency_pair) in enumerate(zip(hist_pairs, latency_pairs)):
-            hist_left = hist_pair[0]
-            hist_right = hist_pair[1]
-            latency_left = latency_pair[0]
-            latency_right = latency_pair[1]
-
-            hist_right = np.append(hist_right, hist_right[-1])
-            latency_right = np.append(latency_right, latency_right[-1]+self.binsize_ns)
-
-            hists[i] = np.convolve(hist_left, hist_right, mode='full')
-            latencies[i] = add_latencies(latency_left, latency_right)
+            hist = np.convolve(hist_pair[0], hist_pair[1])/2.0
+            hist = np.append(hist, 0)
+            hist[1:] += hist[:-1]
+            hists[i] = hist
+            latencies[i] = add_latencies(latency_pair[0], latency_pair[1])
             
         return self.__class__(self._to_raw(latencies, hists), binsize_ns=self._binsize_ns)
     
