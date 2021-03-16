@@ -89,6 +89,9 @@ def draw_node_graph(app, png_path, target_path_name):
     if target_path_name != '' and found_highlight_items==False:
         print(f'Failed to find highlight path! : {target_path_name}')
 
+    def dummy_callback_name(node_name):
+        return node_name + '_dymmy'
+
     for node in app.nodes:
         if node.start_node:
             N = G.add_subgraph([], name=to_cluster_name(node),
@@ -105,7 +108,6 @@ def draw_node_graph(app, png_path, target_path_name):
                                name=to_cluster_name(node),
                                label=node.name,
                                style='rounded')
-
         for cb in node.callbacks:
             arg = {}
             if cb in highlight['callback'] or cb.path in highlight['callback']:
@@ -114,13 +116,19 @@ def draw_node_graph(app, png_path, target_path_name):
                 arg['color'] = 'red'
             N.add_node(cb.unique_name, label=lambda_pretty(cb.symbol), **arg)
 
+        if len(node.callbacks) == 0:
+            N.add_node(dummy_callback_name(node.name), label='', color='white')
+
     for comm in app.comms:
         arg = {}
         edge_to = comm.cb_sub.unique_name
         arg['label'] = comm.topic_name
 
         if comm.cb_pub is None:
-            edge_from = comm.node_pub.callbacks[0].unique_name
+            if len(comm.node_pub.callbacks) > 0:
+                edge_from = comm.node_pub.callbacks[0].unique_name
+            else:
+                edge_from = dummy_callback_name(comm.node_pub.name)
             arg['color'] = 'black'
             arg['style'] = 'dashed'
             arg['ltail'] = to_cluster_name(comm.node_pub)
