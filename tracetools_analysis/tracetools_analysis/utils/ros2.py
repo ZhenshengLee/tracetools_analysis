@@ -133,8 +133,9 @@ class Ros2DataModelUtil(DataModelUtil):
         # Get a list of callback objects
         callback_objects = set(callback_instances['callback_object'])
         # Get their symbol
+        registered_objects = set(callback_symbols.index) & callback_objects
         return {
-            obj: self._prettify(callback_symbols.loc[obj, 'symbol']) for obj in callback_objects
+            obj: self._prettify(callback_symbols.loc[obj, 'symbol']) for obj in registered_objects
         }
 
     def get_tids(self) -> List[str]:

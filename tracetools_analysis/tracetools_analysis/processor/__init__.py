@@ -194,7 +194,19 @@ class EventHandler(Dependant):
         handler_object = cls(**kwargs)  # pylint: disable=all
         processor = Processor(handler_object, **kwargs)
         processor.process(events)
+        cls.check_processed(handler_object)
         return handler_object
+
+    @classmethod
+    def check_processed(cls, handler):
+
+        callback_instances = handler.data.callback_instances
+        callback_symbols = handler.data.callback_symbols
+
+        unregistered_objects = set(callback_instances['callback_object']) \
+            - set(callback_symbols.index)
+        for obj in unregistered_objects:
+            print(f'warn: callback {obj} is not registered. your application may contain rclpy app.')
 
 
 class DependencySolver():
