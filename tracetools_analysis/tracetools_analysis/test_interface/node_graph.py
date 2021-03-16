@@ -117,7 +117,7 @@ def draw_node_graph(app, png_path, target_path_name):
             N.add_node(cb.unique_name, label=lambda_pretty(cb.symbol), **arg)
 
         if len(node.callbacks) == 0:
-            N.add_node(dummy_callback_name(node.name), label='', color='white')
+            N.add_node(dummy_callback_name(node.name), label='', color='#00000000')
 
     for comm in app.comms:
         arg = {}
@@ -168,5 +168,6 @@ def draw_node_graph(app, png_path, target_path_name):
         print(f'{len(unlinked)} communications have no callback name. Please set [/nodes/publish/topic].')
 
     prepare_dir(png_path)
+
 
     G.draw(png_path, prog="dot")
