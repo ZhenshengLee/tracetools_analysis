@@ -229,8 +229,7 @@ class Application():
             if event['_name'] == 'ros2:rclcpp_publish':
                 data = {
                     'timestamp': event['_timestamp'],
-                    'publisher_handle': event['publisher_handle'],
-                    'stamp': event['key_stamp']
+                    'publisher_handle': event['publisher_handle']
                 }
                 publish_instances = publish_instances.append(data, ignore_index=True)
 
@@ -252,7 +251,6 @@ class Application():
             if event['_name'] == 'ros2:rclcpp_subscribe':
                 data = {
                     'timestamp': event['_timestamp'],
-                    'stamp': event['key_stamp'],
                     'callback_object': event['callback'],
                     'source_stamp': event['source_stamp'],
                     'received_stamp': event['received_stamp']
@@ -301,18 +299,16 @@ class Application():
         if len(publish_df_) == 0 or len(subscribe_df_) == 0:
             return comm_instances
 
-        for i, publish_record in publish_df_.iterrows():
-            subscribe_record = subscribe_df_[subscribe_df_['stamp'] == publish_record['stamp']]
+        for i, subscribe_record in subscribe_df_.iterrows():
 
             duration_ns = None
             communication_latency_ns = None
 
-            if len(subscribe_record) == 1:
-                duration_ns = subscribe_record['timestamp'].values[0] - publish_record['timestamp']
-                communication_latency_ns = subscribe_record['received_stamp'].values[0] - subscribe_record['source_stamp'].values[0]
+            duration_ns = subscribe_record['timestamp'] - subscribe_record['source_stamp']
+            communication_latency_ns = subscribe_record['received_stamp'] - subscribe_record['source_stamp']
 
             data = {
-                'timestamp': publish_record['timestamp'],
+                'timestamp': subscribe_record['timestamp'],
                 'publish_object': publish_object,
                 'subscribe_object': subscribe_object,
                 'duration': duration_ns,
